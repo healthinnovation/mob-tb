@@ -37,4 +37,7 @@ mob_lima_metro_od <-
   # arrange(dept_ori, prov_ori, distr_ori, dept_des, prov_des, distr_des)
   arrange(ubigeo_ori, ubigeo_des)
 
-write_csv
+output_path <- path("data", "interim")
+output_file_name <- "mob-lima-metro-od.csv"
+output_file_path <- path(output_path, output_file_name)
+write_csv(mob_lima_metro_od, output_file_path, na = "")
