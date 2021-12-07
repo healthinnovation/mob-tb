@@ -2,6 +2,7 @@ library(fs)
 library(readxl)
 library(innovar)
 library(dplyr)
+library(readr)
 
 raw_path <- path("data", "raw")
 infile <- "district-edu-institution-census-2017.xlsx"
@@ -15,15 +16,18 @@ mob_od_matrix <- get_od_data(mob_raw, wide = TRUE)
 # is destination
 
 lima_metro <- c("LIMA", "CALLAO")
+
 mob_lima_metro_od <-
   mob_od %>%
   filter(
     dept_ori %in% lima_metro, dept_des %in% lima_metro
   )
+
 names(mob_lima_metro_od) <- c(
   "ubigeo_des", "ubigeo_ori", "cases", "dept_des", "prov_des", "distr_des",
   "dept_ori", "prov_ori", "distr_ori"
 )
+
 mob_lima_metro_od <-
   mob_lima_metro_od %>%
   select(
@@ -32,3 +36,5 @@ mob_lima_metro_od <-
   ) %>%
   # arrange(dept_ori, prov_ori, distr_ori, dept_des, prov_des, distr_des)
   arrange(ubigeo_ori, ubigeo_des)
+
+write_csv
