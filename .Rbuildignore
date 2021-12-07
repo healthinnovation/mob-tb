@@ -1,0 +1,4 @@
+^renv$
+^renv\.lock$
+^mob-tb\.Rproj$
+^\.Rproj\.user$
