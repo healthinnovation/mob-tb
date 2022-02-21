@@ -1,18 +1,263 @@
 ---
 title: "Exploratory data analysis"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
-
-```{r}
-plot(cars)
+```{r setup, echo=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+```{r}
+library(fs)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(innovar)
+library(sf)
+library(ggplot2)
+theme_set(theme_bw())
+library(scales)
+library(stplanr)
+library(viridis)
+```
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+data_path <- path("data", "interim")
+file_name <- "mob-lima-metro-od.csv"
+file_path <- path(data_path, file_name)
+od <- read_csv(file_path)
+glimpse(od)
+```
+```{r}
+length(unique(od$ubigeo_ori))
+length(unique(od$ubigeo_des))
+```
+
+```{r}
+pop_file_name <- "pop-census-2017.csv"
+pop_file_path <- path(data_path, pop_file_name)
+pop <- read_csv(pop_file_path)
+glimpse(pop)
+```
+
+```{r}
+#TODO: Intra
+```
+
+```{r}
+od %>% 
+  filter(ubigeo_ori != ubigeo_des) ->
+  inter_od
+```
+
+```{r}
+length(unique(inter_od$ubigeo_des))
+setdiff(od$distr_des, inter_od$distr_des)
+```
+
+```{r}
+length(unique(inter_od$ubigeo_ori))
+setdiff(od$distr_ori, inter_od$distr_ori)
+```
+
+```{r}
+inter_od %>% 
+  group_by(ubigeo_des) %>% 
+  summarise(in_flow = sum(cases), .groups = "drop") %>% 
+  arrange(desc(in_flow)) ->
+  in_flow
+```
+
+```{r}
+dim(in_flow)
+```
+
+```{r}
+head(in_flow, 5)
+```
+
+```{r}
+inter_od %>% 
+  group_by(ubigeo_ori) %>% 
+  summarise(out_flow = sum(cases), .groups = "drop") %>% 
+  arrange(desc(out_flow)) ->
+  out_flow
+```
+
+```{r}
+dim(out_flow)
+```
+
+```{r}
+head(out_flow, 5)
+```
+
+```{r}
+lima_districts <- tibble(ubigeo = unique(od$ubigeo_des))
+```
+
+```{r}
+lima_districts %>% 
+  left_join(in_flow, by = c("ubigeo" = "ubigeo_des")) %>% 
+  left_join(out_flow, by = c("ubigeo" = "ubigeo_ori")) %>% 
+  replace_na(list(in_flow = 0, out_flow = 0)) ->
+  in_out_flow
+```
+
+```{r}
+in_out_flow
+```
+
+```{r}
+in_out_flow %>% 
+  inner_join(pop, by = "ubigeo") %>% 
+  select(-c(department, province, district)) -> 
+  in_out_flow_pop
+```
+
+```{r}
+in_out_flow_pop
+```
+
+```{r}
+quantile_probs <- seq(0, 1, .2)
+
+in_out_flow_pop %>% 
+  mutate(
+    balance = in_flow - out_flow,
+    in_rate = in_flow / (population - 0.5 * balance),
+    out_rate = out_flow / (population - 0.5 * balance),
+    net_rate = in_rate - out_rate
+  ) %>% 
+  mutate(
+    across(
+      in_rate:net_rate,
+      ~ cut(.x, quantile(.x, quantile_probs), include.lowest = TRUE),
+      .names = "{.col}_cat"
+    )
+  ) %>% 
+  mutate(
+    net_rate_cat_z = cut(
+      net_rate, c(min(flow_geo$net_rate), -0.01, 0.01, max(flow_geo$net_rate)),
+      include.lowest = TRUE
+    )
+  ) -> flow_rates
+```
+
+```{r}
+flow_rates
+```
+
+```{r}
+data("Peru", package = "innovar")
+distr_geo <- select(Peru, ubigeo, geometry)
+```
+
+```{r}
+distr_geo
+```
+
+```{r}
+distr_geo %>% 
+  inner_join(flow_rates, by = "ubigeo") ->
+  flow_geo
+```
+
+```{r}
+flow_geo %>% 
+  ggplot(aes(fill = in_rate_cat)) + 
+  geom_sf(size = 0.1) +
+  scale_fill_brewer(palette = "Oranges") -> in_rate_plot
+```
+
+```{r}
+svg("analysis/figs/in-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+in_rate_plot
+dev.off()
+```
+
+```{r}
+flow_geo %>% 
+  ggplot(aes(fill = out_rate_cat)) + 
+  geom_sf(size = 0.1) +
+  scale_fill_brewer(palette = "Oranges") -> out_rate_plot
+```
+
+```{r}
+svg("analysis/figs/out-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+out_rate_plot
+dev.off()
+```
+
+```{r}
+net_rate_col <- c(
+  "[-2.42,-0.01]" = "#D8B365", "(-0.01,0.01]" = "#F5F5F5", 
+  "(0.01,7.63]" = "#5AB4AC"
+)
+
+flow_geo %>% 
+  ggplot(aes(fill = net_rate_cat_z)) + 
+  geom_sf(size = 0.1) +
+  scale_fill_manual(values = net_rate_col) -> net_rate_plot
+```
+
+```{r}
+svg("analysis/figs/net-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+net_rate_plot
+dev.off()
+```
+
+
+```{r}
+distr_shp_tr <- st_transform(Peru, 2163)
+distr_centroids <- st_centroid(distr_shp_tr)
+```
+
+```{r}
+od_lines <- od2line(inter_od, distr_centroids)
+od_lines_ow <- od_oneway(od_lines, attrib = "cases")
+```
+
+```{r}
+flow_rates %>% 
+  select(ubigeo, population, balance) ->
+  pop_balance
+
+od_lines_ow %>% 
+  inner_join(pop_balance, by = c("ubigeo_ori" = "ubigeo")) %>% 
+  inner_join(
+    pop_balance, by = c("ubigeo_des" = "ubigeo"), suffix = c("_ori", "_des")
+  ) %>% 
+  mutate(
+    pop_ori = population_ori - 0.5 * balance_ori,
+    pop_des = population_des - 0.5 * balance_des,
+    interchange = (cases / (0.5 * pop_ori + 0.5 * pop_des)) * 10000
+  ) -> od_interchange
+```
+
+```{r}
+od_interchange <- arrange(od_interchange, interchange)
+od_interchange$colour <- viridis(nrow(od_interchange), direction = -1)
+od_interchange_min <- filter(od_interchange, interchange > 0)
+  
+network_plot <- 
+  ggplot() +
+  geom_sf(data = flow_geo, fill = "white", size = 0.3) +
+  geom_sf(
+      od_interchange_min, 
+      mapping = aes(color = log(interchange), alpha = log(interchange))
+    ) +
+    scale_color_viridis_c(direction = -1)
+```
+
+```{r}
+svg("analysis/figs/network-flow-lima.svg", width = 6, height = 7, pointsize = 12)
+network_plot
+dev.off()
+```
+
+
+
