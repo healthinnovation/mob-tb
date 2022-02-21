@@ -40,5 +40,14 @@ vignettes/*.pdf
 .Rproj.user
 
 # data
-*.csv
+data/processed/*.csv
+data/interim/*.csv
 *.xlsx
+
+# outputs
+*.html
+
+# figs
+*.svg
+*.png
+*.jpg
