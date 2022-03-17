@@ -146,12 +146,19 @@ in_out_flow_pop
 ```{r}
 quantile_probs <- seq(0, 1, .2)
 
+# in_out_flow_pop %>% 
+#   mutate(
+#     balance = in_flow - out_flow,
+#     in_rate = in_flow / (population - 0.5 * balance),
+#     out_rate = out_flow / (population - 0.5 * balance),
+#     net_rate = in_rate - out_rate
+#   ) -> flow_rates
+
 in_out_flow_pop %>% 
   mutate(
-    balance = in_flow - out_flow,
-    in_rate = in_flow / (population - 0.5 * balance),
-    out_rate = out_flow / (population - 0.5 * balance),
-    net_rate = in_rate - out_rate
+    in_rate = in_flow / (population + in_flow - out_flow),
+    out_rate = out_flow / population,
+    # net_rate = in_rate - out_rate
   ) -> flow_rates
 ```
 
