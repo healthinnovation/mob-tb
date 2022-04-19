@@ -20,6 +20,7 @@ library(tidygraph)
 library(ggraph)
 library(igraph)
 library(GGally)
+library(ggplot2)
 ```
 
 ```{r}
@@ -31,6 +32,11 @@ glimpse(mob_od)
 ```
 
 ```{r}
+mob_od
+```
+
+
+```{r}
 raw_path <- fs::path("data", "raw")
 pop_file_name <- "pop-census-2017.csv"
 pop_file_path <- fs::path(raw_path, pop_file_name)
@@ -39,15 +45,26 @@ glimpse(mob_nodes_full)
 ```
 
 ```{r}
+mob_nodes_full
+```
+
+
+```{r}
 mob_nodes_full %>% 
   filter(province == "LIMA") ->
   mob_nodes
 ```
 
+```{r}
+mob_nodes
+```
 
 ```{r}
 mob_od %>% 
-  filter(ubigeo_ori != ubigeo_des) ->
+  filter(ubigeo_ori != ubigeo_des) %>% 
+  dplyr::left_join(mob_nodes, by = c("ubigeo_ori" = "ubigeo")) %>% 
+  dplyr::select(-c(department, province, district)) %>% 
+  dplyr::mutate(cases_10k = 10000 * (cases / population)) ->
   mob_edges
 ```
 
@@ -64,11 +81,13 @@ mob_directed_nw
 # Network overall characteristics
 
 ```{r}
-gorder(mob_directed_nw)
+n_nodes <- gorder(mob_directed_nw)
+n_nodes
 ```
 
 ```{r}
-gsize(mob_directed_nw)
+n_edges <- gsize(mob_directed_nw)
+n_edges
 ```
 
 ```{r}
@@ -78,17 +97,58 @@ edge_density(mob_directed_nw) # conexiones en la data / todas las posibles conex
 # Centrality
 
 ```{r}
+# It is possible to specify our own score with centrality_manual 
+
 mob_directed_nw %>%
   activate(nodes) %>%
   mutate(
-    in_degree = centrality_degree(mode = "in"),
-    out_degree = centrality_degree(mode = "out"),
-    in_strength = centrality_degree(weights = cases, mode = "in"),
-    out_strength = centrality_degree(weights = cases, mode = "out")
+    in_degree = centrality_degree(mode = "in") / (n_nodes - 1),
+    out_degree = centrality_degree(mode = "out") / (n_nodes - 1),
+    in_strength = centrality_degree(weights = cases_10k, mode = "in"),
+    out_strength = centrality_degree(weights = cases_10k, mode = "out"),
+    in_closeness = centrality_closeness(weights = cases_10k, mode = "in"),
+    out_closeness = centrality_closeness(weights = cases_10k, mode = "out"),
+    closeness = centrality_closeness(weights = cases_10k, mode = "all"),
+    betweenness = centrality_betweenness(weights = cases_10k, normalized = TRUE),
+    # eigenvector = centrality_eigen(weights = cases_10k, directed = TRUE), #   PageRank may be better for directed graphs
+    # https://lists.nongnu.org/archive/html/igraph-help/2015-11/msg00020.html
+    page_rank = centrality_pagerank(weights = cases_10k),
+    alpha = centrality_alpha(alpha = 0.001), # Don't know how to define alpha yet
+    authority = centrality_authority(weights = cases_10k),
+    hub = centrality_hub(weights = cases_10k)
   ) %>%
   as_tibble() ->
   mob_lima
 ```
+
+```{r}
+mob_lima
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_degree)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(out_degree)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_strength)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_degree, in_strength)) +
+  geom_point()
+```
+
 
 # TB cases
 
@@ -117,9 +177,9 @@ tb_lima %>%
 ```
 
 ```{r}
-# out_file_name <- "mob-tb-lima-2017.csv"
-# out_file_path <- fs::path(interim_path, out_file_name)
-# write_csv(mob_tb_lima, out_file_path)
+out_file_name <- "mob-tb-lima-2017.csv"
+out_file_path <- fs::path(interim_path, out_file_name)
+write_csv(mob_tb_lima, out_file_path)
 ```
 
 # Exploratory data analysis
