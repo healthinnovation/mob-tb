@@ -68,6 +68,11 @@ mob_od %>%
   mob_edges
 ```
 
+```{r}
+mob_edges
+```
+
+
 # Network creation
 
 ```{r}
