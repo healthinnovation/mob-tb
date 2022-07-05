@@ -1,0 +1,223 @@
+---
+title: "Network analysis"
+author: "Diego"
+date: '2022-03-04'
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+```{r}
+library(fs)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(tidygraph)
+library(ggraph)
+library(igraph)
+library(GGally)
+library(ggplot2)
+```
+
+```{r}
+interim_path <- fs::path("data", "interim")
+file_name <- "mob-lima-metro-od.csv"
+file_path <- fs::path(interim_path, file_name)
+mob_od <- read_csv(file_path, col_types = "ccd")
+glimpse(mob_od)
+```
+
+```{r}
+mob_od
+```
+
+
+```{r}
+raw_path <- fs::path("data", "raw")
+pop_file_name <- "pop-census-2017.csv"
+pop_file_path <- fs::path(raw_path, pop_file_name)
+mob_nodes_full <- read_csv(pop_file_path)
+glimpse(mob_nodes_full)
+```
+
+```{r}
+mob_nodes_full
+```
+
+
+```{r}
+mob_nodes_full %>% 
+  filter(province == "LIMA") ->
+  mob_nodes
+```
+
+```{r}
+mob_nodes
+```
+
+```{r}
+mob_od %>% 
+  filter(ubigeo_ori != ubigeo_des) %>% 
+  dplyr::left_join(mob_nodes, by = c("ubigeo_ori" = "ubigeo")) %>% 
+  dplyr::select(-c(department, province, district)) %>% 
+  dplyr::mutate(cases_10k = 10000 * (cases / population)) ->
+  mob_edges
+```
+
+```{r}
+mob_edges
+```
+
+
+# Network creation
+
+```{r}
+mob_directed_nw <-
+  tbl_graph(nodes = mob_nodes, edges = mob_edges, directed = TRUE)
+```
+
+```{r}
+mob_directed_nw
+```
+# Network overall characteristics
+
+```{r}
+n_nodes <- gorder(mob_directed_nw)
+n_nodes
+```
+
+```{r}
+n_edges <- gsize(mob_directed_nw)
+n_edges
+```
+
+```{r}
+edge_density(mob_directed_nw) # conexiones en la data / todas las posibles conexiones 
+```
+
+# Centrality
+
+```{r}
+# It is possible to specify our own score with centrality_manual 
+
+mob_directed_nw %>%
+  activate(nodes) %>%
+  mutate(
+    in_degree = centrality_degree(mode = "in") / (n_nodes - 1),
+    out_degree = centrality_degree(mode = "out") / (n_nodes - 1),
+    in_strength = centrality_degree(weights = cases_10k, mode = "in"),
+    out_strength = centrality_degree(weights = cases_10k, mode = "out"),
+    in_closeness = centrality_closeness(weights = cases_10k, mode = "in"),
+    out_closeness = centrality_closeness(weights = cases_10k, mode = "out"),
+    closeness = centrality_closeness(weights = cases_10k, mode = "all"),
+    betweenness = centrality_betweenness(weights = cases_10k, normalized = TRUE),
+    # eigenvector = centrality_eigen(weights = cases_10k, directed = TRUE), #   PageRank may be better for directed graphs
+    # https://lists.nongnu.org/archive/html/igraph-help/2015-11/msg00020.html
+    page_rank = centrality_pagerank(weights = cases_10k),
+    alpha = centrality_alpha(alpha = 0.001), # Don't know how to define alpha yet
+    authority = centrality_authority(weights = cases_10k),
+    hub = centrality_hub(weights = cases_10k)
+  ) %>%
+  as_tibble() ->
+  mob_lima
+```
+
+```{r}
+mob_lima
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_degree)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(out_degree)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_strength)) +
+  geom_histogram(bins = 15)
+```
+
+```{r}
+mob_lima %>% 
+  ggplot(aes(in_degree, in_strength)) +
+  geom_point()
+```
+
+
+# TB cases
+
+```{r}
+tb_file_name <- "tb-cases-lima-2017.csv"
+tb_file_path <- fs::path(raw_path, tb_file_name)
+tb_lima_raw <- read_csv(tb_file_path)
+glimpse(tb_lima_raw)
+```
+
+```{r}
+tb_lima_raw %>% 
+  filter(YEAR == 2017) %>% 
+  select(
+    ubigeo_eess, max_temperature:delta_temperature, poblacion, 
+    total_casos:incidencia_tbpfp 
+  ) %>% 
+  mutate(ubigeo_eess = as.character(ubigeo_eess)) ->
+  tb_lima
+```
+
+```{r}
+tb_lima %>% 
+  inner_join(mob_lima, by = c("ubigeo_eess" = "ubigeo")) ->
+  mob_tb_lima
+```
+
+```{r}
+mob_tb_lima
+```
+
+```{r}
+demo_filename <- "per-demography-2017.csv" 
+demo_path <- fs::path(raw_path, demo_filename)
+demo_raw <- read_csv(demo_path, col_select = c(ubigeo, nib_hogar:monetary_poverty))
+```
+
+```{r}
+mob_tb_lima <- mob_tb_lima %>% left_join(demo_raw, by = c("ubigeo_eess" = "ubigeo"))
+```
+
+```{r}
+out_file_name <- "mob-tb-lima-2017.csv"
+out_file_path <- fs::path(interim_path, out_file_name)
+write_csv(mob_tb_lima, out_file_path)
+```
+
+# Exploratory data analysis
+
+```{r}
+mob_tb_lima %>% 
+  select(in_degree:hub) %>% 
+  ggpairs()
+```
+
+```{r}
+mob_tb_lima %>% 
+  mutate(incidence = 100000 * casos_nuevos / poblacion) %>% 
+  select(incidencia, incidence)
+```
+
+```{r}
+mob_tb_lima %>% 
+  mutate(morbility = 100000 * total_casos / poblacion) %>% 
+  select(morbilidad, morbility)
+```
+

@@ -15,13 +15,9 @@ mig_od_matrix <- get_od_data(mig_raw, wide = TRUE)
 #TODO: Add argument in get_od_data to choose which column is origin and which
 # is destination
 
-lima_metro <- c("LIMA", "CALLAO")
-
 mig_lima_metro_od <-
   mig_od %>%
-  filter(
-    dept_ori %in% lima_metro, dept_des %in% lima_metro
-  )
+  filter(prov_ori == "LIMA", prov_des == "LIMA")
 
 names(mig_lima_metro_od) <- c(
   "ubigeo_des", "ubigeo_ori", "cases", "dept_des", "prov_des", "distr_des",

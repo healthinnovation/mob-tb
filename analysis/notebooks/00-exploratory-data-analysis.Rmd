@@ -9,43 +9,51 @@ output:
 knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```
 
+# Packages
 
 ```{r}
 library(fs)
 library(dplyr)
 library(readr)
 library(tidyr)
-library(innovar)
-library(sf)
+library(innovar) # paquete del lab
+library(sf) # simple features: trabajar con data geográfica
 library(ggplot2)
 theme_set(theme_bw())
 library(scales)
-library(stplanr)
-library(viridis)
+library(stplanr) # gráficos de redes en mapas
+library(viridis) # colores
 ```
+# Load mobilization data
 
 ```{r}
-data_path <- path("data", "interim")
+interim_path <- path("data", "interim")
 file_name <- "mob-lima-metro-od.csv"
-file_path <- path(data_path, file_name)
+file_path <- path(interim_path, file_name)
 od <- read_csv(file_path)
 glimpse(od)
 ```
+
 ```{r}
 length(unique(od$ubigeo_ori))
 length(unique(od$ubigeo_des))
 ```
 
+# Load population data
+
 ```{r}
+raw_path <- path("data", "raw")
 pop_file_name <- "pop-census-2017.csv"
-pop_file_path <- path(data_path, pop_file_name)
+pop_file_path <- path(raw_path, pop_file_name)
 pop <- read_csv(pop_file_path)
 glimpse(pop)
 ```
 
 ```{r}
-#TODO: Intra
+#TODO: Intra-district analysis
 ```
+
+# Inter-distrital analysis
 
 ```{r}
 od %>% 
@@ -53,15 +61,21 @@ od %>%
   inter_od
 ```
 
+## Districts that are not a destiny 
+
 ```{r}
 length(unique(inter_od$ubigeo_des))
 setdiff(od$distr_des, inter_od$distr_des)
 ```
 
+## Districts that are not an origin 
+
 ```{r}
 length(unique(inter_od$ubigeo_ori))
 setdiff(od$distr_ori, inter_od$distr_ori)
 ```
+
+## In-flow
 
 ```{r}
 inter_od %>% 
@@ -79,6 +93,8 @@ dim(in_flow)
 head(in_flow, 5)
 ```
 
+## Out-flow
+
 ```{r}
 inter_od %>% 
   group_by(ubigeo_ori) %>% 
@@ -94,6 +110,8 @@ dim(out_flow)
 ```{r}
 head(out_flow, 5)
 ```
+
+## Table with in and out-flow for all districts
 
 ```{r}
 lima_districts <- tibble(ubigeo = unique(od$ubigeo_des))
@@ -111,6 +129,8 @@ lima_districts %>%
 in_out_flow
 ```
 
+## Add population
+
 ```{r}
 in_out_flow %>% 
   inner_join(pop, by = "ubigeo") %>% 
@@ -121,17 +141,31 @@ in_out_flow %>%
 ```{r}
 in_out_flow_pop
 ```
+## Mobilization rates
 
 ```{r}
 quantile_probs <- seq(0, 1, .2)
 
+# in_out_flow_pop %>% 
+#   mutate(
+#     balance = in_flow - out_flow,
+#     in_rate = in_flow / (population - 0.5 * balance),
+#     out_rate = out_flow / (population - 0.5 * balance),
+#     net_rate = in_rate - out_rate
+#   ) -> flow_rates
+
 in_out_flow_pop %>% 
   mutate(
-    balance = in_flow - out_flow,
-    in_rate = in_flow / (population - 0.5 * balance),
-    out_rate = out_flow / (population - 0.5 * balance),
-    net_rate = in_rate - out_rate
-  ) %>% 
+    in_rate = in_flow / (population + in_flow - out_flow),
+    out_rate = out_flow / population,
+    # net_rate = in_rate - out_rate
+  ) -> flow_rates
+```
+
+## Categorize rates
+
+```{r}
+flow_rates %>% 
   mutate(
     across(
       in_rate:net_rate,
@@ -141,15 +175,17 @@ in_out_flow_pop %>%
   ) %>% 
   mutate(
     net_rate_cat_z = cut(
-      net_rate, c(min(flow_geo$net_rate), -0.01, 0.01, max(flow_geo$net_rate)),
+      net_rate, c(min(flow_rates$net_rate), -0.01, 0.01, max(flow_rates$net_rate)),
       include.lowest = TRUE
     )
-  ) -> flow_rates
+  ) -> flow_rates_cat
 ```
 
 ```{r}
-flow_rates
+flow_rates_cat
 ```
+
+## Geographic data
 
 ```{r}
 data("Peru", package = "innovar")
@@ -162,35 +198,45 @@ distr_geo
 
 ```{r}
 distr_geo %>% 
-  inner_join(flow_rates, by = "ubigeo") ->
+  inner_join(flow_rates_cat, by = "ubigeo") ->
   flow_geo
 ```
+
+## In-rate plot
 
 ```{r}
 flow_geo %>% 
   ggplot(aes(fill = in_rate_cat)) + 
   geom_sf(size = 0.1) +
   scale_fill_brewer(palette = "Oranges") -> in_rate_plot
+
+in_rate_plot
 ```
 
 ```{r}
-svg("analysis/figs/in-rate-lima.svg", width = 6, height = 7, pointsize = 12)
-in_rate_plot
-dev.off()
+# svg("analysis/figs/in-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+# in_rate_plot
+# dev.off()
 ```
+
+## Out-rate plot
 
 ```{r}
 flow_geo %>% 
   ggplot(aes(fill = out_rate_cat)) + 
   geom_sf(size = 0.1) +
   scale_fill_brewer(palette = "Oranges") -> out_rate_plot
+
+out_rate_plot
 ```
 
 ```{r}
-svg("analysis/figs/out-rate-lima.svg", width = 6, height = 7, pointsize = 12)
-out_rate_plot
-dev.off()
+# svg("analysis/figs/out-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+# out_rate_plot
+# dev.off()
 ```
+
+## Net-rate plot
 
 ```{r}
 net_rate_col <- c(
@@ -202,24 +248,29 @@ flow_geo %>%
   ggplot(aes(fill = net_rate_cat_z)) + 
   geom_sf(size = 0.1) +
   scale_fill_manual(values = net_rate_col) -> net_rate_plot
+
+net_rate_plot
 ```
 
 ```{r}
-svg("analysis/figs/net-rate-lima.svg", width = 6, height = 7, pointsize = 12)
-net_rate_plot
-dev.off()
+# svg("analysis/figs/net-rate-lima.svg", width = 6, height = 7, pointsize = 12)
+# net_rate_plot
+# dev.off()
 ```
 
+## District centroids
 
 ```{r}
 distr_shp_tr <- st_transform(Peru, 2163)
 distr_centroids <- st_centroid(distr_shp_tr)
 ```
+## Create od-lines
 
 ```{r}
 od_lines <- od2line(inter_od, distr_centroids)
 od_lines_ow <- od_oneway(od_lines, attrib = "cases")
 ```
+## Interchange data
 
 ```{r}
 flow_rates %>% 
@@ -238,6 +289,8 @@ od_lines_ow %>%
   ) -> od_interchange
 ```
 
+## Network plot
+
 ```{r}
 od_interchange <- arrange(od_interchange, interchange)
 od_interchange$colour <- viridis(nrow(od_interchange), direction = -1)
@@ -251,12 +304,14 @@ network_plot <-
       mapping = aes(color = log(interchange), alpha = log(interchange))
     ) +
     scale_color_viridis_c(direction = -1)
+
+network_plot
 ```
 
 ```{r}
-svg("analysis/figs/network-flow-lima.svg", width = 6, height = 7, pointsize = 12)
-network_plot
-dev.off()
+# svg("analysis/figs/network-flow-lima.svg", width = 6, height = 7, pointsize = 12)
+# network_plot
+# dev.off()
 ```
 
 
