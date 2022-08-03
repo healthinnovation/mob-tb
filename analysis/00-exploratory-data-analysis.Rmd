@@ -5,10 +5,6 @@ output:
     df_print: paged
 ---
 
-```{r setup, echo=FALSE}
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-```
-
 # Packages
 
 ```{r}
@@ -24,6 +20,7 @@ library(scales)
 library(stplanr) # gráficos de redes en mapas
 library(viridis) # colores
 ```
+
 # Load mobilization data
 
 ```{r}

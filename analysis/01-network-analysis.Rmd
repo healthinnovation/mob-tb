@@ -7,10 +7,6 @@ output:
     df_print: paged
 ---
 
-```{r setup, echo=FALSE}
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-```
-
 ```{r}
 library(fs)
 library(dplyr)
@@ -168,8 +164,7 @@ glimpse(tb_lima_raw)
 tb_lima_raw %>% 
   filter(YEAR == 2017) %>% 
   select(
-    ubigeo_eess, max_temperature:delta_temperature, poblacion, 
-    total_casos:incidencia_tbpfp 
+    ubigeo_eess, poblacion, total_casos, max_temperature:delta_temperature
   ) %>% 
   mutate(ubigeo_eess = as.character(ubigeo_eess)) ->
   tb_lima
@@ -186,7 +181,7 @@ mob_tb_lima
 ```
 
 ```{r}
-demo_filename <- "per-demography-2017.csv" 
+demo_filename <- "per-demographics-2017.csv" 
 demo_path <- fs::path(raw_path, demo_filename)
 demo_raw <- read_csv(demo_path, col_select = c(ubigeo, nib_hogar:monetary_poverty))
 ```
