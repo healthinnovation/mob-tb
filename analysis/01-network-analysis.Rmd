@@ -164,7 +164,8 @@ glimpse(tb_lima_raw)
 tb_lima_raw %>% 
   filter(YEAR == 2017) %>% 
   select(
-    ubigeo_eess, poblacion, total_casos, max_temperature:delta_temperature
+    ubigeo_eess, new_cases = casos_nuevos, 
+    max_temperature:delta_temperature
   ) %>% 
   mutate(ubigeo_eess = as.character(ubigeo_eess)) ->
   tb_lima
@@ -172,7 +173,8 @@ tb_lima_raw %>%
 
 ```{r}
 tb_lima %>% 
-  inner_join(mob_lima, by = c("ubigeo_eess" = "ubigeo")) ->
+  inner_join(mob_lima, by = c("ubigeo_eess" = "ubigeo")) %>% 
+  select(ubigeo = ubigeo_eess, population, new_cases, everything()) ->
   mob_tb_lima
 ```
 
@@ -183,12 +185,18 @@ mob_tb_lima
 ```{r}
 demo_filename <- "per-demographics-2017.csv" 
 demo_path <- fs::path(raw_path, demo_filename)
-demo_raw <- read_csv(demo_path, col_select = c(ubigeo, nib_hogar:monetary_poverty))
+demo_raw <- read_csv(demo_path)
 ```
 
 ```{r}
-mob_tb_lima <- mob_tb_lima %>% left_join(demo_raw, by = c("ubigeo_eess" = "ubigeo"))
+mob_tb_lima <- mob_tb_lima %>% 
+  left_join(demo_raw, by = "ubigeo")
 ```
+
+```{r}
+mob_tb_lima
+```
+
 
 ```{r}
 out_file_name <- "mob-tb-lima-2017.csv"
