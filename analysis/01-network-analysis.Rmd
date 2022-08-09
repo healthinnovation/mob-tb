@@ -1,6 +1,6 @@
 ---
 title: "Network analysis"
-author: "Diego"
+author: "Diego Villa, Diego Salcedo"
 date: '2022-03-04'
 output:
   html_document:
@@ -189,12 +189,19 @@ demo_raw <- read_csv(demo_path)
 ```
 
 ```{r}
-mob_tb_lima <- mob_tb_lima %>% 
-  left_join(demo_raw, by = "ubigeo")
+demo <- demo_raw %>% 
+  select(-one_of(c("department", "province", "district")))
+```
+
+
+```{r}
+mob_tb <- mob_tb_lima %>% 
+  select(-one_of(c("department", "province", "district"))) %>% 
+  left_join(demo, by = "ubigeo")
 ```
 
 ```{r}
-mob_tb_lima
+mob_tb
 ```
 
 

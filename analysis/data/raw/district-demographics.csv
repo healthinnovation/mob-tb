@@ -1,4 +1,4 @@
-﻿ubigeo,department,province,district,idh,monetary_poverty,life_expectancy,complete_secondary_education,years_education,family_income,number_hh,hh_1_nib_or_more,hh_inadequate_characteristics,overcrowded_housing,hh_wo_bathrooms,hh_children_not_attending_school,hh_high_economic_dependence
+﻿ubigeo,department,province,district,idh,monetary_poverty,life_expectancy,complete_secondary_edu,years_edu,family_income,number_hh,hh_1_nbi_or_more,hh_inadequate_char,overcrowded_hh,hh_wo_sanitation,hh_school_absence,hh_high_economic_dependence
 010101,AMAZONAS,CHACHAPOYAS,CHACHAPOYAS,0.605711277,0.09034625,73.29754386,0.746995778,9.7582,1086.762736,8359,832,247,405,113,64,106
 010102,AMAZONAS,CHACHAPOYAS,ASUNCION,0.421303484,0.36519949,72.34906658,0.666666667,5.8662,569.6103176,104,74,74,9,0,1,0
 010103,AMAZONAS,CHACHAPOYAS,BALSAS,0.294232045,0.45732962,68.71056764,0.307692308,4.9866,362.9999036,355,104,10,47,44,3,16
