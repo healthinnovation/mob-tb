@@ -20,79 +20,42 @@ library(ggplot2)
 ```
 
 ```{r}
-interim_path <- fs::path("data", "interim")
-file_name <- "mob-lima-metro-od.csv"
-file_path <- fs::path(interim_path, file_name)
-mob_od <- read_csv(file_path, col_types = "ccd")
-glimpse(mob_od)
+processed_path <- fs::path("data", "processed")
+nodes_filename <- "nodes.csv"
+nodes_filepath <- fs::path(processed_path, nodes_filename)
+nodes <- read_csv(nodes_filepath, col_types = "cccc")
+glimpse(nodes)
 ```
 
 ```{r}
-mob_od
+raw_path <- fs::path("data", "processed")
+edges_filename <- "edges.csv"
+edges_filepath <- fs::path(processed_path, edges_filename)
+edges <- read_csv(edges_filepath, col_types = "ccd")
+glimpse(edges)
 ```
-
-
-```{r}
-raw_path <- fs::path("data", "raw")
-pop_file_name <- "pop-census-2017.csv"
-pop_file_path <- fs::path(raw_path, pop_file_name)
-mob_nodes_full <- read_csv(pop_file_path)
-glimpse(mob_nodes_full)
-```
-
-```{r}
-mob_nodes_full
-```
-
-
-```{r}
-mob_nodes_full %>% 
-  filter(province == "LIMA") ->
-  mob_nodes
-```
-
-```{r}
-mob_nodes
-```
-
-```{r}
-mob_od %>% 
-  filter(ubigeo_ori != ubigeo_des) %>% 
-  dplyr::left_join(mob_nodes, by = c("ubigeo_ori" = "ubigeo")) %>% 
-  dplyr::select(-c(department, province, district)) %>% 
-  dplyr::mutate(cases_10k = 10000 * (cases / population)) ->
-  mob_edges
-```
-
-```{r}
-mob_edges
-```
-
 
 # Network creation
 
 ```{r}
-mob_directed_nw <-
-  tbl_graph(nodes = mob_nodes, edges = mob_edges, directed = TRUE)
+mob_tb_graph <-
+  tbl_graph(nodes = nodes, edges = edges, directed = TRUE)
 ```
 
-```{r}
-mob_directed_nw
-```
 # Network overall characteristics
 
 ```{r}
-n_nodes <- gorder(mob_directed_nw)
+n_nodes <- gorder(mob_tb_graph)
 n_nodes
 ```
 
 ```{r}
-n_edges <- gsize(mob_directed_nw)
+n_edges <- gsize(mob_tb_graph)
 n_edges
 ```
 
 ```{r}
-edge_density(mob_directed_nw) # conexiones en la data / todas las posibles conexiones 
+edge_density(mob_tb_graph) # conexiones en la data / todas las posibles conexiones 
 ```
 
 # Centrality
@@ -100,30 +63,44 @@ edge_density(mob_directed_nw) # conexiones en la data / todas las posibles conex
 ```{r}
 # It is possible to specify our own score with centrality_manual 
 
-mob_directed_nw %>%
+mob_tb_centralities <- mob_tb_graph %>%
   activate(nodes) %>%
   mutate(
     in_degree = centrality_degree(mode = "in") / (n_nodes - 1),
     out_degree = centrality_degree(mode = "out") / (n_nodes - 1),
-    in_strength = centrality_degree(weights = cases_10k, mode = "in"),
-    out_strength = centrality_degree(weights = cases_10k, mode = "out"),
-    in_closeness = centrality_closeness(weights = cases_10k, mode = "in"),
-    out_closeness = centrality_closeness(weights = cases_10k, mode = "out"),
-    closeness = centrality_closeness(weights = cases_10k, mode = "all"),
-    betweenness = centrality_betweenness(weights = cases_10k, normalized = TRUE),
-    # eigenvector = centrality_eigen(weights = cases_10k, directed = TRUE), #   PageRank may be better for directed graphs
+    in_strength = centrality_degree(weights = weight, mode = "in"),
+    out_strength = centrality_degree(weights = weight, mode = "out"),
+    in_closeness = centrality_closeness(weights = weight, mode = "in"),
+    out_closeness = centrality_closeness(weights = weight, mode = "out"),
+    closeness = centrality_closeness(weights = weight, mode = "all"),
+    betweenness = centrality_betweenness(weights = weight, normalized = TRUE),
+    # eigenvector = centrality_eigen(weights = weight, directed = TRUE), #   PageRank may be better for directed graphs
     # https://lists.nongnu.org/archive/html/igraph-help/2015-11/msg00020.html
-    page_rank = centrality_pagerank(weights = cases_10k),
-    alpha = centrality_alpha(alpha = 0.001), # Don't know how to define alpha yet
-    authority = centrality_authority(weights = cases_10k),
-    hub = centrality_hub(weights = cases_10k)
-  ) %>%
-  as_tibble() ->
-  mob_lima
+    page_rank = centrality_pagerank(weights = weight),
+    alpha = centrality_alpha(weights = weight), # Don't know how to define alpha yet
+    authority = centrality_authority(weights = weight),
+    hub = centrality_hub(weights = weight)
+  ) %>% 
+  activate(nodes) %>% 
+  as_tibble()
 ```
 
 ```{r}
-mob_lima
+glimpse(mob_tb_centralities)
+```
+
+```{r}
+mob_tb_filename <- "mob-tb.csv"
+mob_tb_filepath <- fs::path(processed_path, mob_tb_filename)
+write_csv(mob_tb_centralities, mob_tb_filepath, na = "")
+```
+
+```{r}
+variable <- colnames(mob_tb_centralities)
+description <- rep(NA, length(variable))
+dict <- tibble(variable, description)
+dict_filepath <- fs::path(processed_path, "data-dictionary.csv")
+write_csv(dict, dict_filepath, na = "")
 ```
 
 ```{r}
@@ -183,9 +160,9 @@ mob_tb_lima
 ```
 
 ```{r}
-demo_filename <- "per-demographics-2017.csv" 
-demo_path <- fs::path(raw_path, demo_filename)
-demo_raw <- read_csv(demo_path)
+# demo_filename <- "demographics.csv" 
+# demo_path <- fs::path(raw_path, demo_filename)
+demo_raw <- read_csv("data/processed/demographics.csv", col_types = paste(c(rep("c", 4), rep("d", 13))))
 ```
 
 ```{r}
@@ -196,6 +173,7 @@ demo <- demo_raw %>%
 
 ```{r}
 mob_tb <- mob_tb_lima %>% 
+  select(-population) %>% 
   select(-one_of(c("department", "province", "district"))) %>% 
   left_join(demo, by = "ubigeo")
 ```
@@ -206,9 +184,9 @@ mob_tb
 
 
 ```{r}
-out_file_name <- "mob-tb-lima-2017.csv"
-out_file_path <- fs::path(interim_path, out_file_name)
-write_csv(mob_tb_lima, out_file_path)
+# out_file_name <- "mob-tb-lima-2017.csv"
+# out_file_path <- fs::path(interim_path, out_file_name)
+write_csv(mob_tb_lima, "data/processed/mob-tb-lima-2017.csv")
 ```
 
 # Exploratory data analysis
