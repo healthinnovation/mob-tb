@@ -2,12 +2,12 @@ library(fs)
 library(readr)
 library(dplyr)
 
-raw_path <- path("analysis/data/raw/")
+raw_path <- path("data/raw/")
 demographics_filename <- "demographics.csv"
 demographics_filepath <- path(raw_path, demographics_filename)
 demographics_raw <- read_csv(demographics_filepath, col_types = "cd")
 
-population_filename <- "2017-census-population.csv"
+population_filename <- "population.csv"
 population_filepath <- path(raw_path, population_filename)
 population <- read_csv(population_filepath, col_types = "ccccdd")
 
@@ -37,7 +37,7 @@ demographics <- demographics_full %>%
     hh_high_economic_dependence = hh_high_economic_dependence_prop
   )
 
-interim_path <- "analysis/data/interim/"
+interim_path <- "data/interim/to-merge/"
 output_filename <- "01-demographics.csv"
 output_filepath <- path(interim_path, output_filename)
 write_csv(demographics, output_filepath, na = "")

@@ -40,10 +40,8 @@ vignettes/*.pdf
 .Rproj.user
 
 # data
-data/processed/*.csv
+data/raw/*.sav
 data/interim/*.csv
-data/processed/*.xlsx
-data/interim/*.xlsx
 
 # outputs
 *.html

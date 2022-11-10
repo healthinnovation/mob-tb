@@ -61,8 +61,6 @@ edge_density(mob_tb_graph) # conexiones en la data / todas las posibles conexion
 # Centrality
 
 ```{r}
-# It is possible to specify our own score with centrality_manual 
-
 mob_tb_centralities <- mob_tb_graph %>%
   activate(nodes) %>%
   mutate(

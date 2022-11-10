@@ -31,8 +31,6 @@ centralities_raw <- network %>%
     out_closeness = centrality_closeness(weights = weight, mode = "out"),
     closeness = centrality_closeness(weights = weight, mode = "all"),
     betweenness = centrality_betweenness(weights = weight),
-    # eigenvector = centrality_eigen(weights = weight, directed = TRUE), #   PageRank may be better for directed graphs
-    # https://lists.nongnu.org/archive/html/igraph-help/2015-11/msg00020.html
     page_rank = centrality_pagerank(weights = weight),
     alpha = centrality_alpha(weights = weight),
     authority = centrality_authority(weights = weight),
@@ -42,7 +40,8 @@ centralities_raw <- network %>%
   as_tibble()
 
 centralities <- centralities_raw %>%
-  mutate(across(in_degree:hub, ~ scales::rescale(.x)))
+  mutate(across(in_degree:hub, ~ scales::rescale(.x))) %>%
+  tidyr::drop_na()
 
 centralities_filename <- "mob-tb.csv"
 centralities_filepath <- path(processed_path, centralities_filename)

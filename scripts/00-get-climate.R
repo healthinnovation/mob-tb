@@ -7,7 +7,7 @@ library(purrr)
 library(readr)
 library(fs)
 
-output_path <- "analysis/data/raw/climate-pollution/"
+output_path <- "data/raw/climate/"
 
 ee_Initialize()
 
@@ -104,7 +104,7 @@ write_csv(aai, aai_filepath, na = "")
 # PM2.5 -------------------------------------------------------------------
 
 pm25_raw <- read_csv(
-  "analysis/data/raw/pm25.csv",
+  "data/raw/pm25.csv",
   col_select = c("UBIGEO", "pm2.5_mean"),
   show_col_types = FALSE
 )
