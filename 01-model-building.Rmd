@@ -5,3 +5,763 @@ output:
     df_print: paged
 ---
 
+```{r}
+library(fs)
+library(dplyr)
+library(MASS)
+library(mgcv)
+library(gratia)
+library(flextable)
+library(ggplot2)
+library(cowplot)
+library(ggsci)
+```
+
+```{r}
+processed_path <- "data/processed/"
+input_filename <- "mob-tb.csv"
+input_filepath <- path(processed_path, input_filename)
+mob_tb <- readr::read_csv(input_filepath, col_types = "ccccd")
+```
+
+```{r}
+dataset <- mob_tb %>% 
+  dplyr::select(population_permanent:hub)
+```
+
+```{r}
+fit_null <- gam(
+  new_cases ~ 1, family = nb(), data = dataset
+)
+summary(fit_null)
+```
+
+```{r}
+fit_0 <- gam(
+  new_cases ~ offset(log(population_permanent)) + s(idh), family = nb(), data = dataset
+)
+```
+
+```{r}
+fit_1 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(monetary_poverty)
+)
+```
+
+```{r}
+fit_2 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(life_expectancy)
+)
+```
+
+```{r}
+fit_3 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(complete_secondary_edu)
+)
+```
+
+```{r}
+fit_4 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(years_edu)
+)
+```
+
+```{r}
+fit_5 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(edu_achievement)
+)
+```
+
+```{r}
+fit_6 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(family_income)
+)
+```
+
+```{r}
+fit_7 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(hh_1_nbi_or_more)
+)
+```
+
+```{r}
+fit_8 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(hh_inadequate_char)
+)
+```
+
+```{r}
+fit_9 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(overcrowded_hh)
+)
+```
+
+```{r}
+fit_10 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(hh_wo_sanitation)
+)
+```
+
+```{r}
+fit_11 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(hh_school_absence)
+)
+```
+
+```{r}
+fit_12 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(hh_high_economic_dependence)
+)
+```
+
+```{r}
+fit_13 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(aai)
+)
+```
+
+```{r}
+fit_14 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(co)
+)
+```
+
+```{r}
+fit_15 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(ntl)
+)
+```
+
+```{r}
+fit_16 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(no2)
+)
+```
+
+```{r}
+fit_17 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(o3)
+)
+```
+
+```{r}
+fit_18 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(pm25)
+)
+```
+
+```{r}
+fit_19 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(so2)
+)
+```
+
+```{r}
+fit_20 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(tmmn)
+)
+```
+
+```{r}
+fit_21 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(tmmx)
+)
+```
+
+```{r}
+fit_22 <- update(
+  fit_0, . ~ offset(log(population_permanent)) + s(intra_mob)
+)
+```
+
+```{r}
+get_aic <- function(...) {
+  aic_df <- AIC(...)
+  call <- match.call()
+  models <- as.character(call)[-1]
+  aic_tibble <- tibble(model = models, aic_df) %>% 
+    arrange(AIC)
+  aic_tibble
+}
+```
+
+```{r}
+get_aic(
+  fit_null, fit_0, fit_1, fit_2, fit_3, fit_4, fit_5, fit_6, fit_7, fit_8, fit_9, 
+  fit_10, fit_11, fit_12, fit_13, fit_14, fit_15, fit_16, fit_17, fit_18, fit_19,
+  fit_20, fit_21, fit_22
+)
+```
+
+```{r}
+fit_23 <- update(
+  fit_5, . ~ . + s(idh)
+)
+```
+
+```{r}
+fit_24 <- update(
+  fit_5, . ~ . + s(monetary_poverty)
+)
+```
+
+```{r}
+fit_25 <- update(
+  fit_5, . ~ . + s(life_expectancy)
+)
+```
+
+```{r}
+fit_26 <- update(
+  fit_5, . ~ . + s(complete_secondary_edu)
+)
+```
+
+```{r}
+fit_27 <- update(
+  fit_5, . ~ . + s(years_edu)
+)
+```
+
+```{r}
+fit_28 <- update(
+  fit_5, . ~ . + s(family_income)
+)
+```
+
+```{r}
+fit_29 <- update(
+  fit_5, . ~ . + s(hh_1_nbi_or_more)
+)
+```
+
+```{r}
+fit_30 <- update(
+  fit_5, . ~ . + s(overcrowded_hh)
+)
+```
+
+```{r}
+fit_31 <- update(
+  fit_5, . ~ . + s(hh_wo_sanitation)
+)
+```
+
+```{r}
+fit_32 <- update(
+  fit_5, . ~ . + s(hh_school_absence)
+)
+```
+
+```{r}
+fit_33 <- update(
+  fit_5, . ~ . + s(hh_high_economic_dependence)
+)
+```
+
+```{r}
+fit_34 <- update(
+  fit_5, . ~ . + s(aai)
+)
+```
+
+```{r}
+fit_35 <- update(
+  fit_5, . ~ . + s(co)
+)
+```
+
+```{r}
+fit_36 <- update(
+  fit_5, . ~ . + s(ntl)
+)
+```
+
+```{r}
+fit_37 <- update(
+  fit_5, . ~ . + s(no2)
+)
+```
+
+```{r}
+fit_38 <- update(
+  fit_5, . ~ . + s(o3)
+)
+```
+
+```{r}
+fit_39 <- update(
+  fit_5, . ~ . + s(pm25)
+)
+```
+
+```{r}
+fit_40 <- update(
+  fit_5, . ~ . + s(so2)
+)
+```
+
+```{r}
+fit_41 <- update(
+  fit_5, . ~ . + s(tmmn)
+)
+```
+
+```{r}
+fit_42 <- update(
+  fit_5, . ~ . + s(tmmx)
+)
+```
+
+```{r}
+fit_43 <- update(
+  fit_5, . ~ . + s(intra_mob)
+)
+```
+
+```{r}
+get_aic(
+  fit_5, fit_23, fit_24, fit_25, fit_26, fit_27, fit_28, fit_29, fit_30, fit_31, 
+  fit_32, fit_33, fit_34, fit_35, fit_36, fit_37, fit_38, fit_39, fit_40, fit_41, fit_42,
+  fit_43
+)
+```
+
+```{r}
+fit_44 <- update(
+  fit_26, . ~ . + s(idh)
+)
+```
+
+```{r}
+fit_45 <- update(
+  fit_26, . ~ . + s(monetary_poverty)
+)
+```
+
+```{r}
+fit_46 <- update(
+  fit_26, . ~ . + s(life_expectancy)
+)
+```
+
+```{r}
+fit_47 <- update(
+  fit_26, . ~ . + s(years_edu)
+)
+```
+
+```{r}
+fit_48 <- update(
+  fit_26, . ~ . + s(family_income)
+)
+```
+
+```{r}
+fit_49 <- update(
+  fit_26, . ~ . + s(hh_1_nbi_or_more)
+)
+```
+
+```{r}
+fit_50 <- update(
+  fit_26, . ~ . + s(hh_inadequate_char)
+)
+```
+
+```{r}
+fit_51 <- update(
+  fit_26, . ~ . + s(overcrowded_hh)
+)
+```
+
+```{r}
+fit_52 <- update(
+  fit_26, . ~ . + s(hh_wo_sanitation)
+)
+```
+
+```{r}
+fit_53 <- update(
+  fit_26, . ~ . + s(hh_school_absence)
+)
+```
+
+```{r}
+fit_54 <- update(
+  fit_26, . ~ . + s(hh_high_economic_dependence)
+)
+```
+
+```{r}
+fit_55 <- update(
+  fit_26, . ~ . + s(aai)
+)
+```
+
+```{r}
+fit_56 <- update(
+  fit_26, . ~ . + s(co)
+)
+```
+
+```{r}
+fit_57 <- update(
+  fit_26, . ~ . + s(ntl)
+)
+```
+
+```{r}
+fit_58 <- update(
+  fit_26, . ~ . + s(no2)
+)
+```
+
+```{r}
+fit_59 <- update(
+  fit_26, . ~ . + s(o3)
+)
+```
+
+```{r}
+fit_60 <- update(
+  fit_26, . ~ . + s(pm25)
+)
+```
+
+```{r}
+fit_61 <- update(
+  fit_26, . ~ . + s(so2)
+)
+```
+
+```{r}
+fit_62 <- update(
+  fit_26, . ~ . + s(tmmn)
+)
+```
+
+```{r}
+fit_63 <- update(
+  fit_26, . ~ . + s(tmmx)
+)
+```
+
+```{r}
+fit_64 <- update(
+  fit_26, . ~ . + s(intra_mob)
+)
+```
+
+```{r}
+get_aic(
+  fit_26, fit_44, fit_45, fit_46, fit_47, fit_48, fit_49, fit_50, fit_51, fit_52, 
+  fit_53, fit_54, fit_55, fit_56, fit_57, fit_58, fit_59, fit_60, fit_61, fit_62, 
+  fit_63, fit_64
+)
+```
+
+```{r}
+fit_65 <- update(
+  fit_55, . ~ . + s(idh)
+)
+```
+
+```{r}
+fit_66 <- update(
+  fit_55, . ~ . + s(monetary_poverty)
+)
+```
+
+```{r}
+fit_67 <- update(
+  fit_55, . ~ . + s(life_expectancy)
+)
+```
+
+```{r}
+fit_68 <- update(
+  fit_55, . ~ . + s(years_edu)
+)
+```
+
+```{r}
+fit_69 <- update(
+  fit_55, . ~ . + s(family_income)
+)
+```
+
+```{r}
+fit_70 <- update(
+  fit_55, . ~ . + s(hh_1_nbi_or_more)
+)
+```
+
+```{r}
+fit_71 <- update(
+  fit_55, . ~ . + s(hh_inadequate_char)
+)
+```
+
+```{r}
+fit_72 <- update(
+  fit_55, . ~ . + s(overcrowded_hh)
+)
+```
+
+```{r}
+fit_73 <- update(
+  fit_55, . ~ . + s(hh_wo_sanitation)
+)
+```
+
+```{r}
+fit_74 <- update(
+  fit_55, . ~ . + s(hh_school_absence)
+)
+```
+
+```{r}
+fit_75 <- update(
+  fit_55, . ~ . + s(hh_high_economic_dependence)
+)
+```
+
+```{r}
+fit_76 <- update(
+  fit_55, . ~ . + s(co)
+)
+```
+
+```{r}
+fit_77 <- update(
+  fit_55, . ~ . + s(ntl)
+)
+```
+
+```{r}
+fit_78 <- update(
+  fit_55, . ~ . + s(no2)
+)
+```
+
+```{r}
+fit_77 <- update(
+  fit_55, . ~ . + s(o3)
+)
+```
+
+```{r}
+fit_78 <- update(
+  fit_55, . ~ . + s(pm25)
+)
+```
+
+```{r}
+fit_79 <- update(
+  fit_55, . ~ . + s(so2)
+)
+```
+
+```{r}
+fit_80 <- update(
+  fit_55, . ~ . + s(tmmn)
+)
+```
+
+```{r}
+fit_81 <- update(
+  fit_55, . ~ . + s(tmmx)
+)
+```
+
+```{r}
+fit_82 <- update(
+  fit_55, . ~ . + s(intra_mob)
+)
+```
+
+```{r}
+get_aic(
+  fit_55, fit_65, fit_66, fit_67, fit_68, fit_69, fit_70, fit_71, fit_72, fit_73, 
+  fit_74, fit_75, fit_76, fit_77, fit_78, fit_79, fit_80, fit_81, fit_82
+)
+```
+
+```{r}
+fit_83 <- update(
+  fit_78, . ~ . + s(idh)
+)
+fit_84 <- update(
+  fit_78, . ~ . + s(monetary_poverty)
+)
+fit_85 <- update(
+  fit_78, . ~ . + s(life_expectancy)
+)
+fit_86 <- update(
+  fit_78, . ~ . + s(years_edu)
+)
+fit_87 <- update(
+  fit_78, . ~ . + s(family_income)
+)
+fit_88 <- update(
+  fit_78, . ~ . + s(hh_1_nbi_or_more)
+)
+fit_89 <- update(
+  fit_78, . ~ . + s(hh_inadequate_char)
+)
+fit_90 <- update(
+  fit_78, . ~ . + s(overcrowded_hh)
+)
+fit_91 <- update(
+  fit_78, . ~ . + s(hh_wo_sanitation)
+)
+fit_92 <- update(
+  fit_78, . ~ . + s(hh_school_absence)
+)
+fit_93 <- update(
+  fit_78, . ~ . + s(hh_high_economic_dependence)
+)
+fit_94 <- update(
+  fit_78, . ~ . + s(co)
+)
+fit_95 <- update(
+  fit_78, . ~ . + s(ntl)
+)
+fit_96 <- update(
+  fit_78, . ~ . + s(no2)
+)
+fit_97 <- update(
+  fit_78, . ~ . + s(o3)
+)
+fit_98 <- update(
+  fit_78, . ~ . + s(so2)
+)
+fit_99 <- update(
+  fit_78, . ~ . + s(tmmn)
+)
+fit_100 <- update(
+  fit_78, . ~ . + s(tmmx)
+)
+fit_101 <- update(
+  fit_78, . ~ . + s(intra_mob)
+)
+```
+
+```{r}
+fit_central_0 <- update(
+  fit_78, . ~ . + in_degree
+)
+fit_central_1 <- update(
+  fit_78, . ~ . + out_degree
+)
+fit_central_2 <- update(
+  fit_78, . ~ . + degree
+)
+fit_central_3 <- update(
+  fit_78, . ~ . + in_strength
+)
+fit_central_4 <- update(
+  fit_78, . ~ . + out_strength
+)
+fit_central_5 <- update(
+  fit_78, . ~ . + strength
+)
+fit_central_6 <- update(
+  fit_78, . ~ . + in_closeness
+)
+fit_central_7 <- update(
+  fit_78, . ~ . + out_closeness
+)
+fit_central_8 <- update(
+  fit_78, . ~ . + closeness
+)
+fit_central_9 <- update(
+  fit_78, . ~ . + betweenness
+)
+fit_central_10 <- update(
+  fit_78, . ~ . + page_rank
+)
+fit_central_11 <- update(
+  fit_78, . ~ . + alpha
+)
+fit_central_12 <- update(
+  fit_78, . ~ . + authority
+)
+fit_central_13 <- update(
+  fit_78, . ~ . + hub
+)
+```
+
+```{r}
+summ_fit_78 <- as_flextable(fit_78)
+summ_fit_78 %>% 
+  save_as_image("figures/summ_base_fit.png")
+```
+
+```{r}
+get_aic(
+  fit_78, fit_central_0, fit_central_1, fit_central_2, fit_central_3, fit_central_4, 
+  fit_central_5, fit_central_6, fit_central_7, fit_central_8, fit_central_9,
+  fit_central_10, fit_central_11, fit_central_12, fit_central_13
+)
+```
+
+```{r}
+effects_fit_central_7 <- parametric_effects(fit_central_7)
+effects_fit_central_10 <- parametric_effects(fit_central_10)
+effects_fit_central_11 <- parametric_effects(fit_central_11)
+effects_fit_central_12 <- parametric_effects(fit_central_12)
+effects_fit_central_3 <- parametric_effects(fit_central_3)
+effects_fit_central_5 <- parametric_effects(fit_central_5)
+effects <- bind_rows(
+  effects_fit_central_7, effects_fit_central_10, effects_fit_central_11, 
+  effects_fit_central_12, effects_fit_central_3, effects_fit_central_5
+)
+```
+
+```{r}
+peffects_plot <- effects %>% 
+  mutate(
+    Centrality = factor(
+      term, 
+      levels = c(
+        "out_closeness", "page_rank", "alpha", "authority", "in_strength", "strength"
+      ),
+      labels = c(
+        "Out-closeness", "Page-rank", "Alpha", "Authority", "In-strength", "Strength"
+      )
+    )
+  ) %>% 
+  ggplot(aes(value, partial, fill = Centrality)) +
+  geom_line(aes(color = Centrality)) +
+  geom_ribbon(aes(ymin = partial-2*se, ymax = partial+2*se), alpha = 0.1) +
+  labs(y = "Partial effect", x = "Predictor value") +
+  scale_color_npg() +
+  scale_fill_npg() +
+  theme_cowplot()
+```
+
+```{r}
+ggsave("figures/partial-effects.png", peffects_plot, height = 5, width = 9)
+```
+
+```{r}
+summ_fit_central_7 <- as_flextable(fit_central_7)
+summ_fit_central_7 %>% 
+  save_as_image("figures/summ_central_fit_out_close.png")
+```
+
+```{r}
+summary(fit_central_5)
+```
+
+```{r}
+draw(parametric_effects(fit_central_7))
+```
+
+
+
+
+
+

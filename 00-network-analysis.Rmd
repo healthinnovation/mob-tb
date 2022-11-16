@@ -7,71 +7,61 @@ output:
     df_print: paged
 ---
 
-```{r}
+```{r message=FALSE}
 library(fs)
 library(dplyr)
-library(readr)
-library(tidyr)
 library(tidygraph)
-library(ggraph)
 library(igraph)
-library(GGally)
+library(innovar)
+library(sf)
 library(ggplot2)
+library(ggraph)
+library(cowplot)
+library(ggpubr)
 ```
 
 ```{r}
 processed_path <- fs::path("data", "processed")
+```
+
+```{r}
 nodes_filename <- "nodes.csv"
 nodes_filepath <- fs::path(processed_path, nodes_filename)
-nodes <- read_csv(nodes_filepath, col_types = "cccc")
-glimpse(nodes)
+nodes <- readr::read_csv(nodes_filepath, col_types = "ccccd")
 ```
 
 ```{r}
-raw_path <- fs::path("data", "processed")
 edges_filename <- "edges.csv"
 edges_filepath <- fs::path(processed_path, edges_filename)
-edges <- read_csv(edges_filepath, col_types = "ccd")
-glimpse(edges)
+edges <- readr::read_csv(edges_filepath, col_types = "ccd")
 ```
 
-# Network creation
+# Graph creation
 
 ```{r}
-mob_tb_graph <-
-  tbl_graph(nodes = nodes, edges = edges, directed = TRUE)
-```
-
-# Network overall characteristics
-
-```{r}
-n_nodes <- gorder(mob_tb_graph)
-n_nodes
+graph <- tbl_graph(
+  nodes = nodes, edges = edges, directed = TRUE, node_key = "ubigeo"
+)
 ```
 
 ```{r}
-n_edges <- gsize(mob_tb_graph)
-n_edges
+edge_density(graph) 
 ```
+# Centrality metrics
 
 ```{r}
-edge_density(mob_tb_graph) # conexiones en la data / todas las posibles conexiones 
-```
-
-# Centrality
-
-```{r}
-mob_tb_centralities <- mob_tb_graph %>%
-  activate(nodes) %>%
+centralities <- graph %>%
   mutate(
-    in_degree = centrality_degree(mode = "in") / (n_nodes - 1),
-    out_degree = centrality_degree(mode = "out") / (n_nodes - 1),
+    in_degree = centrality_degree(mode = "in"),
+    out_degree = centrality_degree(mode = "out"),
+    degree = centrality_degree(mode = "all"),
     in_strength = centrality_degree(weights = weight, mode = "in"),
     out_strength = centrality_degree(weights = weight, mode = "out"),
+    strength = centrality_degree(weights = weight, mode = "all"),
     in_closeness = centrality_closeness(weights = weight, mode = "in"),
     out_closeness = centrality_closeness(weights = weight, mode = "out"),
     closeness = centrality_closeness(weights = weight, mode = "all"),
-    betweenness = centrality_betweenness(weights = weight, normalized = TRUE),
+    betweenness = centrality_betweenness(weights = weight),
     # eigenvector = centrality_eigen(weights = weight, directed = TRUE), #   PageRank may be better for directed graphs
     # https://lists.nongnu.org/archive/html/igraph-help/2015-11/msg00020.html
     page_rank = centrality_pagerank(weights = weight),
@@ -80,130 +70,441 @@ mob_tb_centralities <- mob_tb_graph %>%
     hub = centrality_hub(weights = weight)
   ) %>% 
   activate(nodes) %>% 
-  as_tibble()
-```
-
-```{r}
-glimpse(mob_tb_centralities)
+  mutate(across(in_degree:hub, scales::rescale)) 
 ```
 
 ```{r}
 mob_tb_filename <- "mob-tb.csv"
 mob_tb_filepath <- fs::path(processed_path, mob_tb_filename)
-write_csv(mob_tb_centralities, mob_tb_filepath, na = "")
+mob_tb <- as_tibble(centralities)
+readr::write_csv(mob_tb, mob_tb_filepath, na = "")
 ```
 
 ```{r}
-variable <- colnames(mob_tb_centralities)
-description <- rep(NA, length(variable))
-dict <- tibble(variable, description)
-dict_filepath <- fs::path(processed_path, "data-dictionary.csv")
-write_csv(dict, dict_filepath, na = "")
+# variable <- colnames(mob_tb_centralities)
+# description <- rep(NA, length(variable))
+# dict <- tibble(variable, description)
+# dict_filepath <- fs::path(processed_path, "data-dictionary.csv")
+# write_csv(dict, dict_filepath, na = "")
+```
+
+# Flow maps
+
+```{r}
+data(Peru, package = "innovar")
 ```
 
 ```{r}
-mob_lima %>% 
-  ggplot(aes(in_degree)) +
-  geom_histogram(bins = 15)
+coordinates <- Peru %>% 
+  filter(ubigeo %in% nodes$ubigeo) %>% 
+  st_transform(2163) %>% 
+  st_centroid() %>% 
+  mutate(x = st_coordinates(.)[, 1], y = st_coordinates(.)[, 2]) %>% 
+  select(x, y) %>% 
+  st_drop_geometry()
 ```
 
 ```{r}
-mob_lima %>% 
-  ggplot(aes(out_degree)) +
-  geom_histogram(bins = 15)
+graph_layout <- create_layout(centralities, layout = coordinates)
 ```
 
 ```{r}
-mob_lima %>% 
-  ggplot(aes(in_strength)) +
-  geom_histogram(bins = 15)
+plot_graph <- function(graph, centrality, label, legend_position = "top") {
+  plt_raw <- graph %>% 
+    ggraph(graph = graph_layout) +
+    geom_edge_arc(aes(alpha = weight), strength = 0.1) + 
+    geom_node_point(aes(size = {{centrality}}, color = {{centrality}})) +
+    scale_size_continuous(name = label, guide = "legend") +
+    scale_color_continuous(name = label, guide = "legend") +
+    scale_edge_alpha_continuous(name = "Weight", guide = "legend") +
+    theme_graph(base_family = "sans", base_size = 14, background = NA)
+  
+  if (legend_position == "right") {
+    plt <- plt_raw +
+      theme(legend.position = legend_position, legend.box = "vertical")
+  } else {
+    plt <- plt_raw +
+      theme(
+        legend.position = legend_position, legend.box = "vertical", 
+        legend.spacing.y = unit(-0.1, "in")
+      )
+  }
+  
+  plt
+}
+```
+
+## Degree
+
+```{r fig.height=7, fig.width=7}
+graph_in_degree <- plot_graph(centralities, in_degree, "In-degree")
+graph_in_degree
 ```
 
 ```{r}
-mob_lima %>% 
-  ggplot(aes(in_degree, in_strength)) +
-  geom_point()
+ggsave(
+  "figures/graph/in-degree.png", graph_in_degree, height = 7, width = 7
+)
 ```
 
-
-# TB cases
-
-```{r}
-tb_file_name <- "tb-cases-lima-2017.csv"
-tb_file_path <- fs::path(raw_path, tb_file_name)
-tb_lima_raw <- read_csv(tb_file_path)
-glimpse(tb_lima_raw)
+```{r fig.height=7, fig.width=7}
+graph_out_degree <- plot_graph(centralities, out_degree, "Out-degree")
+graph_out_degree
 ```
 
 ```{r}
-tb_lima_raw %>% 
-  filter(YEAR == 2017) %>% 
-  select(
-    ubigeo_eess, new_cases = casos_nuevos, 
-    max_temperature:delta_temperature
+ggsave(
+  "figures/graph/out-degree.png", graph_out_degree, height = 7, width = 7
+)
+```
+
+```{r fig.height=7, fig.width=7}
+graph_degree <- plot_graph(centralities, degree, "Degree")
+graph_degree
+```
+
+```{r}
+ggsave(
+  "figures/graph/degree.png", graph_degree, height = 7, width = 7
+)
+```
+
+```{r}
+graph_in_degree_element <- plot_graph(
+  centralities, in_degree, "Centrality", legend_position = "bottom"
+)
+
+graph_out_degree_element <- plot_graph(
+  centralities, out_degree, "Centrality", legend_position = "bottom"
+)
+
+graph_degree_element <- plot_graph(
+  centralities, degree, "Centrality", legend_position = "bottom"
+)
+
+grapth_degree_grid <- ggarrange(
+  graph_in_degree_element, graph_out_degree_element, graph_degree_element, 
+  ncol = 3, labels = c("In-degree", "Out-degree", "Degree"),
+  common.legend = TRUE, legend = "bottom"
+)
+```
+
+```{r fig.height=7, fig.width=18}
+grapth_degree_grid
+```
+
+```{r}
+ggsave(
+  "figures/graph/degree-grid.png", grapth_degree_grid, height = 7, width = 18
+)
+```
+
+## Strength
+
+```{r fig.height=7, fig.width=7}
+graph_in_strength <- plot_graph(centralities, in_strength, "In-strength")
+graph_in_strength
+```
+
+```{r}
+ggsave(
+  "figures/graph/in-strength.png", graph_in_strength, height = 7, width = 7
+)
+```
+
+```{r fig.height=7, fig.width=7}
+graph_out_strength <- plot_graph(centralities, out_strength, "Out-strength")
+graph_out_strength
+```
+
+```{r}
+ggsave(
+  "figures/graph/out-strength.png", graph_out_strength, height = 7, width = 7
+)
+```
+
+```{r fig.height=7, fig.width=7}
+graph_strength <- plot_graph(centralities, strength, "Strength")
+graph_strength
+```
+
+```{r}
+ggsave(
+  "figures/graph/strength.png", graph_strength, height = 7, width = 7
+)
+```
+
+```{r}
+graph_in_strength_element <- plot_graph(
+  centralities, in_strength, "Centrality", legend_position = "bottom"
+)
+
+graph_out_strength_element <- plot_graph(
+  centralities, out_strength, "Centrality", legend_position = "bottom"
+)
+
+graph_strength_element <- plot_graph(
+  centralities, strength, "Centrality", legend_position = "bottom"
+)
+
+graph_strength_grid <- ggarrange(
+  graph_in_strength_element, graph_out_strength_element, graph_strength_element, 
+  ncol = 3, labels = c("In-strength", "Out-strength", "Strength"),
+  common.legend = TRUE, legend = "bottom"
+)
+```
+
+```{r fig.height=7, fig.width=18}
+graph_strength_grid
+```
+
+```{r}
+ggsave(
+  "figures/graph/strength-grid.png", graph_strength_grid, height = 7, width = 18
+)
+```
+
+## Closeness
+
+```{r fig.height=7, fig.width=7}
+graph_in_closeness <- plot_graph(centralities, in_closeness, "In-closeness")
+graph_in_closeness
+```
+
+```{r}
+ggsave(
+  "figures/graph/in-closeness.png", graph_in_closeness, height = 7, width = 7
+)
+```
+
+```{r fig.height=7, fig.width=7}
+graph_out_closeness <- plot_graph(centralities, out_closeness, "Out-closeness")
+graph_out_closeness
+```
+
+```{r}
+ggsave(
+  "figures/graph/out-closeness.png", graph_out_closeness, height = 7, width = 7
+)
+```
+
+```{r fig.height=7, fig.width=7}
+graph_closeness <- plot_graph(centralities, closeness, "Closeness")
+graph_closeness
+```
+
+```{r}
+ggsave(
+  "figures/graph/closeness.png", graph_closeness, height = 7, width = 7
+)
+```
+
+```{r}
+graph_in_closeness_element <- plot_graph(
+  centralities, in_closeness, "Centrality", legend_position = "bottom"
+)
+
+graph_out_closeness_element <- plot_graph(
+  centralities, out_closeness, "Centrality", legend_position = "bottom"
+)
+
+graph_closeness_element <- plot_graph(
+  centralities, closeness, "Centrality", legend_position = "bottom"
+)
+
+graph_closeness_grid <- ggarrange(
+  graph_in_closeness_element, graph_out_closeness_element, graph_closeness_element, 
+  ncol = 3, labels = c("In-closeness", "Out-closeness", "Closeness"),
+  common.legend = TRUE, legend = "bottom"
+)
+```
+
+```{r fig.height=7, fig.width=18}
+graph_closeness_grid
+```
+
+```{r}
+ggsave(
+  "figures/graph/closeness-grid.png", graph_closeness_grid, height = 7, width = 18
+)
+```
+
+## Betweenness
+
+```{r fig.height=7, fig.width=7}
+graph_betweenness <- plot_graph(centralities, betweenness, "Betwenness")
+graph_betweenness
+```
+
+```{r}
+ggsave(
+  "figures/graph/betweenness.png", graph_betweenness, height = 7, width = 7
+)
+```
+
+```{r}
+graph_betweenness_element <- plot_graph(
+  centralities, betweenness, "Centrality", legend_position = "bottom"
+)
+
+graph_popular_grid <- ggarrange(
+  graph_strength_element, graph_closeness_element, graph_betweenness_element, 
+  ncol = 3, labels = c("Strength", "Closeness", "Betweenness"),
+  common.legend = TRUE, legend = "bottom"
+)
+```
+
+```{r fig.height=7, fig.width=18}
+graph_popular_grid
+```
+
+```{r}
+ggsave(
+  "figures/graph/popular-grid.png", graph_popular_grid, height = 7, width = 18
+)
+```
+
+## Page-rank
+
+```{r fig.height=7, fig.width=7}
+graph_page_rank <- plot_graph(centralities, page_rank, "Page-rank")
+graph_page_rank
+```
+
+```{r}
+ggsave(
+  "figures/graph/page_rank.png", graph_page_rank, height = 7, width = 7
+)
+```
+
+## Alpha
+
+```{r fig.height=7, fig.width=7}
+graph_alpha <- plot_graph(centralities, alpha, "Alpha")
+graph_alpha
+```
+
+```{r}
+ggsave(
+  "figures/graph/alpha.png", graph_alpha, height = 7, width = 7
+)
+```
+
+## Authority
+
+```{r fig.height=7, fig.width=7}
+graph_authority <- plot_graph(centralities, authority, "Authority")
+graph_authority
+```
+
+```{r}
+ggsave(
+  "figures/graph/authority.png", graph_authority, height = 7, width = 7
+)
+```
+
+## Hub
+
+```{r fig.height=7, fig.width=7}
+graph_hub <- plot_graph(centralities, hub, "Hub")
+graph_hub
+```
+
+```{r}
+ggsave(
+  "figures/graph/hub.png", graph_hub, height = 7, width = 7
+)
+```
+
+```{r}
+graph_page_rank_element <- plot_graph(
+  centralities, page_rank, "Centrality", legend_position = "right"
+)
+
+graph_alpha_element <- plot_graph(
+  centralities, alpha, "Centrality", legend_position = "right"
+)
+
+graph_authority_element <- plot_graph(
+  centralities, authority, "Centrality", legend_position = "right"
+)
+
+graph_hub_element <- plot_graph(
+  centralities, hub, "Centrality", legend_position = "right"
+)
+
+graph_complex_grid <- ggarrange(
+  graph_page_rank_element, graph_alpha_element, graph_authority_element, 
+  graph_hub_element, ncol = 2, nrow = 2, 
+  labels = c("Page-rank", "Alpha", "Authority", "Hub"),
+  common.legend = TRUE, legend = "right"
+)
+```
+
+```{r fig.height=12, fig.width=12}
+graph_complex_grid
+```
+
+```{r}
+ggsave(
+  "figures/graph/complex-grid.png", graph_complex_grid, height = 11, width = 11
+)
+```
+
+```{r fig.height=7.5, fig.width=6}
+bar_in_degree <- mob_tb %>% 
+  ggplot(aes(reorder(district, in_degree), in_degree)) +
+  geom_col(aes(fill = in_degree), width = 0.8, show.legend = FALSE) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = NULL, y = NULL, title = "In-degree") +
+  theme_cowplot(10) +
+  coord_flip()
+bar_in_degree
+```
+
+```{r}
+ggsave(
+  "figures/bar/in-degree.png", bar_in_degree, height = 7.5, width = 6
+)
+```
+
+```{r fig.height=8, fig.width=8}
+bar_strength <- mob_tb %>% 
+  ggplot(aes(reorder(district, strength), strength)) +
+  geom_col(aes(fill = strength), width = 0.8) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  labs(x = NULL, y = NULL, title = "Strength") +
+  theme_cowplot(10) +
+  coord_flip()
+bar_strength
+```
+
+```{r}
+mob_tb %>% 
+  mutate(
+    in_degree_rank = district[order(in_degree, decreasing = TRUE)],
+    out_degree_rank = district[order(out_degree, decreasing = TRUE)],
+    degree_rank = district[order(degree, decreasing = TRUE)],
+    in_strength_rank = district[order(in_strength, decreasing = TRUE)],
+    out_strength_rank = district[order(out_strength, decreasing = TRUE)],
+    strength_rank = district[order(strength, decreasing = TRUE)],
+    in_closeness_rank = district[order(in_closeness, decreasing = TRUE)],
+    out_closeness_rank = district[order(out_closeness, decreasing = TRUE)],
+    closeness_rank = district[order(closeness, decreasing = TRUE)],
+    betweenness_rank = district[order(betweenness, decreasing = TRUE)],
+    page_rank_rank = district[order(page_rank, decreasing = TRUE)],
+    alpha_rank = district[order(alpha, decreasing = TRUE)],
+    authority_rank = district[order(authority, decreasing = TRUE)],
+    hub_rank = district[order(hub, decreasing = TRUE)]
   ) %>% 
-  mutate(ubigeo_eess = as.character(ubigeo_eess)) ->
-  tb_lima
+  select(in_degree_rank:hub_rank)
 ```
 
 ```{r}
-tb_lima %>% 
-  inner_join(mob_lima, by = c("ubigeo_eess" = "ubigeo")) %>% 
-  select(ubigeo = ubigeo_eess, population, new_cases, everything()) ->
-  mob_tb_lima
-```
-
-```{r}
-mob_tb_lima
-```
-
-```{r}
-# demo_filename <- "demographics.csv" 
-# demo_path <- fs::path(raw_path, demo_filename)
-demo_raw <- read_csv("data/processed/demographics.csv", col_types = paste(c(rep("c", 4), rep("d", 13))))
-```
-
-```{r}
-demo <- demo_raw %>% 
-  select(-one_of(c("department", "province", "district")))
-```
-
-
-```{r}
-mob_tb <- mob_tb_lima %>% 
-  select(-population) %>% 
-  select(-one_of(c("department", "province", "district"))) %>% 
-  left_join(demo, by = "ubigeo")
-```
-
-```{r}
-mob_tb
-```
-
-
-```{r}
-# out_file_name <- "mob-tb-lima-2017.csv"
-# out_file_path <- fs::path(interim_path, out_file_name)
-write_csv(mob_tb_lima, "data/processed/mob-tb-lima-2017.csv")
-```
-
-# Exploratory data analysis
-
-```{r}
-mob_tb_lima %>% 
-  select(in_degree:hub) %>% 
-  ggpairs()
-```
-
-```{r}
-mob_tb_lima %>% 
-  mutate(incidence = 100000 * casos_nuevos / poblacion) %>% 
-  select(incidencia, incidence)
-```
-
-```{r}
-mob_tb_lima %>% 
-  mutate(morbility = 100000 * total_casos / poblacion) %>% 
-  select(morbilidad, morbility)
+mob_tb %>% 
+  ggplot(aes(betweenness, log(new_cases/population_permanent))) +
+  geom_point()
 ```
 
