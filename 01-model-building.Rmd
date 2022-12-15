@@ -9,6 +9,7 @@ output:
 library(fs)
 library(dplyr)
 library(MASS)
+library(glmnet)
 library(mgcv)
 library(gratia)
 library(flextable)
@@ -28,6 +29,64 @@ mob_tb <- readr::read_csv(input_filepath, col_types = "ccccd")
 dataset <- mob_tb %>% 
   dplyr::select(population_permanent:hub)
 ```
+
+```{r}
+fit <- gam(
+  new_cases ~ offset(log(population_permanent)) + s(idh) + s(monetary_poverty) +
+    s(life_expectancy) + s(complete_secondary_edu) + s(years_edu),
+  data = dataset, select = TRUE, method = "REML"
+)
+summary(fit)
+```
+
+```{r}
+x <- dataset %>% 
+  dplyr::select(-c(population_permanent, new_cases, intra_mob:hub)) %>% 
+  as.matrix()
+```
+
+```{r}
+offset <- log(dataset$population_permanent)
+```
+
+```{r}
+y <- pull(dataset, new_cases)
+```
+
+
+```{r}
+fit <- glmnet(x, y, family = "poisson", offset = offset)
+summary(fit)
+```
+
+```{r}
+plot(fit, label = TRUE)
+```
+
+```{r}
+print(fit)
+```
+
+```{r}
+coef(fit, s = 3.225)
+```
+
+```{r}
+cvfit <- cv.glmnet(x, y, offset = offset)
+```
+
+```{r}
+plot(cvfit)
+```
+
+```{r}
+coef(cvfit, s = "lambda.min")
+```
+
+```{r}
+# Función para calcular el error de devianze
+```
+
 
 ```{r}
 fit_null <- gam(
