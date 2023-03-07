@@ -6,821 +6,1192 @@ output:
 ---
 
 ```{r}
-library(fs)
 library(dplyr)
-library(MASS)
-library(glmnet)
-library(mgcv)
-library(gratia)
-library(flextable)
 library(ggplot2)
-library(cowplot)
-library(ggsci)
+library(patchwork)
+library(MASS)
+library(performance)
+library(mgcv)
+# library(flextable)
+# library(cowplot)
+# library(ggsci)
 ```
 
 ```{r}
 processed_path <- "data/processed/"
-input_filename <- "mob-tb.csv"
-input_filepath <- path(processed_path, input_filename)
-mob_tb <- readr::read_csv(input_filepath, col_types = "ccccd")
+centralities_filename <- "centralities.csv"
+centralities_filepath <- fs::path(processed_path, centralities_filename)
+centralities <- readr::read_csv(centralities_filepath, col_types = "ccccd")
 ```
 
-```{r}
-dataset <- mob_tb %>% 
-  dplyr::select(population_permanent:hub)
-```
-
-```{r}
-fit <- gam(
-  new_cases ~ offset(log(population_permanent)) + s(idh) + s(monetary_poverty) +
-    s(life_expectancy) + s(complete_secondary_edu) + s(years_edu),
-  data = dataset, select = TRUE, method = "REML"
-)
-summary(fit)
-```
-
-```{r}
-x <- dataset %>% 
-  dplyr::select(-c(population_permanent, new_cases, intra_mob:hub)) %>% 
-  as.matrix()
-```
-
-```{r}
-offset <- log(dataset$population_permanent)
-```
-
-```{r}
-y <- pull(dataset, new_cases)
-```
-
-
-```{r}
-fit <- glmnet(x, y, family = "poisson", offset = offset)
-summary(fit)
-```
-
-```{r}
-plot(fit, label = TRUE)
-```
-
-```{r}
-print(fit)
-```
-
-```{r}
-coef(fit, s = 3.225)
-```
-
-```{r}
-cvfit <- cv.glmnet(x, y, offset = offset)
-```
-
-```{r}
-plot(cvfit)
-```
-
-```{r}
-coef(cvfit, s = "lambda.min")
-```
-
-```{r}
-# Función para calcular el error de devianze
-```
-
-
-```{r}
-fit_null <- gam(
-  new_cases ~ 1, family = nb(), data = dataset
-)
-summary(fit_null)
-```
-
-```{r}
-fit_0 <- gam(
-  new_cases ~ offset(log(population_permanent)) + s(idh), family = nb(), data = dataset
-)
-```
-
-```{r}
-fit_1 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(monetary_poverty)
-)
-```
-
-```{r}
-fit_2 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(life_expectancy)
-)
-```
-
-```{r}
-fit_3 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(complete_secondary_edu)
-)
-```
-
-```{r}
-fit_4 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(years_edu)
-)
-```
-
-```{r}
-fit_5 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(edu_achievement)
-)
-```
-
-```{r}
-fit_6 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(family_income)
-)
-```
-
-```{r}
-fit_7 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(hh_1_nbi_or_more)
-)
-```
-
-```{r}
-fit_8 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(hh_inadequate_char)
-)
-```
-
-```{r}
-fit_9 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(overcrowded_hh)
-)
-```
-
-```{r}
-fit_10 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(hh_wo_sanitation)
-)
-```
-
-```{r}
-fit_11 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(hh_school_absence)
-)
-```
-
-```{r}
-fit_12 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(hh_high_economic_dependence)
-)
-```
-
-```{r}
-fit_13 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(aai)
-)
-```
-
-```{r}
-fit_14 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(co)
-)
-```
-
-```{r}
-fit_15 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(ntl)
-)
-```
-
-```{r}
-fit_16 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(no2)
-)
-```
-
-```{r}
-fit_17 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(o3)
-)
-```
-
-```{r}
-fit_18 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(pm25)
-)
-```
-
-```{r}
-fit_19 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(so2)
-)
-```
-
-```{r}
-fit_20 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(tmmn)
-)
-```
-
-```{r}
-fit_21 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(tmmx)
-)
-```
-
-```{r}
-fit_22 <- update(
-  fit_0, . ~ offset(log(population_permanent)) + s(intra_mob)
-)
-```
-
-```{r}
-get_aic <- function(...) {
-  aic_df <- AIC(...)
-  call <- match.call()
-  models <- as.character(call)[-1]
-  aic_tibble <- tibble(model = models, aic_df) %>% 
-    arrange(AIC)
-  aic_tibble
-}
-```
-
-```{r}
-get_aic(
-  fit_null, fit_0, fit_1, fit_2, fit_3, fit_4, fit_5, fit_6, fit_7, fit_8, fit_9, 
-  fit_10, fit_11, fit_12, fit_13, fit_14, fit_15, fit_16, fit_17, fit_18, fit_19,
-  fit_20, fit_21, fit_22
-)
-```
-
-```{r}
-fit_23 <- update(
-  fit_5, . ~ . + s(idh)
-)
-```
-
-```{r}
-fit_24 <- update(
-  fit_5, . ~ . + s(monetary_poverty)
-)
-```
-
-```{r}
-fit_25 <- update(
-  fit_5, . ~ . + s(life_expectancy)
-)
-```
-
-```{r}
-fit_26 <- update(
-  fit_5, . ~ . + s(complete_secondary_edu)
-)
-```
-
-```{r}
-fit_27 <- update(
-  fit_5, . ~ . + s(years_edu)
-)
-```
-
-```{r}
-fit_28 <- update(
-  fit_5, . ~ . + s(family_income)
-)
-```
-
-```{r}
-fit_29 <- update(
-  fit_5, . ~ . + s(hh_1_nbi_or_more)
-)
-```
-
-```{r}
-fit_30 <- update(
-  fit_5, . ~ . + s(overcrowded_hh)
-)
-```
-
-```{r}
-fit_31 <- update(
-  fit_5, . ~ . + s(hh_wo_sanitation)
-)
-```
-
-```{r}
-fit_32 <- update(
-  fit_5, . ~ . + s(hh_school_absence)
-)
-```
-
-```{r}
-fit_33 <- update(
-  fit_5, . ~ . + s(hh_high_economic_dependence)
-)
-```
-
-```{r}
-fit_34 <- update(
-  fit_5, . ~ . + s(aai)
-)
-```
-
-```{r}
-fit_35 <- update(
-  fit_5, . ~ . + s(co)
-)
-```
-
-```{r}
-fit_36 <- update(
-  fit_5, . ~ . + s(ntl)
-)
-```
-
-```{r}
-fit_37 <- update(
-  fit_5, . ~ . + s(no2)
-)
-```
-
-```{r}
-fit_38 <- update(
-  fit_5, . ~ . + s(o3)
-)
-```
-
-```{r}
-fit_39 <- update(
-  fit_5, . ~ . + s(pm25)
-)
-```
-
-```{r}
-fit_40 <- update(
-  fit_5, . ~ . + s(so2)
-)
-```
-
-```{r}
-fit_41 <- update(
-  fit_5, . ~ . + s(tmmn)
-)
-```
-
-```{r}
-fit_42 <- update(
-  fit_5, . ~ . + s(tmmx)
-)
-```
-
-```{r}
-fit_43 <- update(
-  fit_5, . ~ . + s(intra_mob)
-)
-```
-
-```{r}
-get_aic(
-  fit_5, fit_23, fit_24, fit_25, fit_26, fit_27, fit_28, fit_29, fit_30, fit_31, 
-  fit_32, fit_33, fit_34, fit_35, fit_36, fit_37, fit_38, fit_39, fit_40, fit_41, fit_42,
-  fit_43
-)
-```
-
-```{r}
-fit_44 <- update(
-  fit_26, . ~ . + s(idh)
-)
-```
-
-```{r}
-fit_45 <- update(
-  fit_26, . ~ . + s(monetary_poverty)
-)
-```
-
-```{r}
-fit_46 <- update(
-  fit_26, . ~ . + s(life_expectancy)
-)
-```
-
-```{r}
-fit_47 <- update(
-  fit_26, . ~ . + s(years_edu)
-)
-```
-
-```{r}
-fit_48 <- update(
-  fit_26, . ~ . + s(family_income)
-)
-```
-
-```{r}
-fit_49 <- update(
-  fit_26, . ~ . + s(hh_1_nbi_or_more)
-)
-```
-
-```{r}
-fit_50 <- update(
-  fit_26, . ~ . + s(hh_inadequate_char)
-)
-```
-
-```{r}
-fit_51 <- update(
-  fit_26, . ~ . + s(overcrowded_hh)
-)
-```
-
-```{r}
-fit_52 <- update(
-  fit_26, . ~ . + s(hh_wo_sanitation)
-)
-```
-
-```{r}
-fit_53 <- update(
-  fit_26, . ~ . + s(hh_school_absence)
-)
-```
-
-```{r}
-fit_54 <- update(
-  fit_26, . ~ . + s(hh_high_economic_dependence)
-)
-```
-
-```{r}
-fit_55 <- update(
-  fit_26, . ~ . + s(aai)
-)
-```
-
-```{r}
-fit_56 <- update(
-  fit_26, . ~ . + s(co)
-)
-```
-
-```{r}
-fit_57 <- update(
-  fit_26, . ~ . + s(ntl)
-)
-```
-
-```{r}
-fit_58 <- update(
-  fit_26, . ~ . + s(no2)
-)
-```
-
-```{r}
-fit_59 <- update(
-  fit_26, . ~ . + s(o3)
-)
-```
-
-```{r}
-fit_60 <- update(
-  fit_26, . ~ . + s(pm25)
-)
-```
-
-```{r}
-fit_61 <- update(
-  fit_26, . ~ . + s(so2)
-)
-```
-
-```{r}
-fit_62 <- update(
-  fit_26, . ~ . + s(tmmn)
-)
-```
-
-```{r}
-fit_63 <- update(
-  fit_26, . ~ . + s(tmmx)
-)
-```
-
-```{r}
-fit_64 <- update(
-  fit_26, . ~ . + s(intra_mob)
-)
-```
-
-```{r}
-get_aic(
-  fit_26, fit_44, fit_45, fit_46, fit_47, fit_48, fit_49, fit_50, fit_51, fit_52, 
-  fit_53, fit_54, fit_55, fit_56, fit_57, fit_58, fit_59, fit_60, fit_61, fit_62, 
-  fit_63, fit_64
-)
-```
-
-```{r}
-fit_65 <- update(
-  fit_55, . ~ . + s(idh)
-)
-```
-
-```{r}
-fit_66 <- update(
-  fit_55, . ~ . + s(monetary_poverty)
-)
-```
-
-```{r}
-fit_67 <- update(
-  fit_55, . ~ . + s(life_expectancy)
-)
-```
-
-```{r}
-fit_68 <- update(
-  fit_55, . ~ . + s(years_edu)
-)
-```
-
-```{r}
-fit_69 <- update(
-  fit_55, . ~ . + s(family_income)
-)
-```
-
-```{r}
-fit_70 <- update(
-  fit_55, . ~ . + s(hh_1_nbi_or_more)
-)
-```
-
-```{r}
-fit_71 <- update(
-  fit_55, . ~ . + s(hh_inadequate_char)
-)
-```
-
-```{r}
-fit_72 <- update(
-  fit_55, . ~ . + s(overcrowded_hh)
-)
-```
-
-```{r}
-fit_73 <- update(
-  fit_55, . ~ . + s(hh_wo_sanitation)
-)
-```
-
-```{r}
-fit_74 <- update(
-  fit_55, . ~ . + s(hh_school_absence)
-)
-```
-
-```{r}
-fit_75 <- update(
-  fit_55, . ~ . + s(hh_high_economic_dependence)
-)
-```
-
-```{r}
-fit_76 <- update(
-  fit_55, . ~ . + s(co)
-)
-```
-
-```{r}
-fit_77 <- update(
-  fit_55, . ~ . + s(ntl)
-)
-```
-
-```{r}
-fit_78 <- update(
-  fit_55, . ~ . + s(no2)
-)
-```
-
-```{r}
-fit_77 <- update(
-  fit_55, . ~ . + s(o3)
-)
-```
-
-```{r}
-fit_78 <- update(
-  fit_55, . ~ . + s(pm25)
-)
-```
-
-```{r}
-fit_79 <- update(
-  fit_55, . ~ . + s(so2)
-)
-```
-
-```{r}
-fit_80 <- update(
-  fit_55, . ~ . + s(tmmn)
-)
-```
-
-```{r}
-fit_81 <- update(
-  fit_55, . ~ . + s(tmmx)
-)
-```
-
-```{r}
-fit_82 <- update(
-  fit_55, . ~ . + s(intra_mob)
-)
-```
-
-```{r}
-get_aic(
-  fit_55, fit_65, fit_66, fit_67, fit_68, fit_69, fit_70, fit_71, fit_72, fit_73, 
-  fit_74, fit_75, fit_76, fit_77, fit_78, fit_79, fit_80, fit_81, fit_82
-)
-```
-
-```{r}
-fit_83 <- update(
-  fit_78, . ~ . + s(idh)
-)
-fit_84 <- update(
-  fit_78, . ~ . + s(monetary_poverty)
-)
-fit_85 <- update(
-  fit_78, . ~ . + s(life_expectancy)
-)
-fit_86 <- update(
-  fit_78, . ~ . + s(years_edu)
-)
-fit_87 <- update(
-  fit_78, . ~ . + s(family_income)
-)
-fit_88 <- update(
-  fit_78, . ~ . + s(hh_1_nbi_or_more)
-)
-fit_89 <- update(
-  fit_78, . ~ . + s(hh_inadequate_char)
-)
-fit_90 <- update(
-  fit_78, . ~ . + s(overcrowded_hh)
-)
-fit_91 <- update(
-  fit_78, . ~ . + s(hh_wo_sanitation)
-)
-fit_92 <- update(
-  fit_78, . ~ . + s(hh_school_absence)
-)
-fit_93 <- update(
-  fit_78, . ~ . + s(hh_high_economic_dependence)
-)
-fit_94 <- update(
-  fit_78, . ~ . + s(co)
-)
-fit_95 <- update(
-  fit_78, . ~ . + s(ntl)
-)
-fit_96 <- update(
-  fit_78, . ~ . + s(no2)
-)
-fit_97 <- update(
-  fit_78, . ~ . + s(o3)
-)
-fit_98 <- update(
-  fit_78, . ~ . + s(so2)
-)
-fit_99 <- update(
-  fit_78, . ~ . + s(tmmn)
-)
-fit_100 <- update(
-  fit_78, . ~ . + s(tmmx)
-)
-fit_101 <- update(
-  fit_78, . ~ . + s(intra_mob)
-)
-```
-
-```{r}
-fit_central_0 <- update(
-  fit_78, . ~ . + in_degree
-)
-fit_central_1 <- update(
-  fit_78, . ~ . + out_degree
-)
-fit_central_2 <- update(
-  fit_78, . ~ . + degree
-)
-fit_central_3 <- update(
-  fit_78, . ~ . + in_strength
-)
-fit_central_4 <- update(
-  fit_78, . ~ . + out_strength
-)
-fit_central_5 <- update(
-  fit_78, . ~ . + strength
-)
-fit_central_6 <- update(
-  fit_78, . ~ . + in_closeness
-)
-fit_central_7 <- update(
-  fit_78, . ~ . + out_closeness
-)
-fit_central_8 <- update(
-  fit_78, . ~ . + closeness
-)
-fit_central_9 <- update(
-  fit_78, . ~ . + betweenness
-)
-fit_central_10 <- update(
-  fit_78, . ~ . + page_rank
-)
-fit_central_11 <- update(
-  fit_78, . ~ . + alpha
-)
-fit_central_12 <- update(
-  fit_78, . ~ . + authority
-)
-fit_central_13 <- update(
-  fit_78, . ~ . + hub
-)
-```
-
-```{r}
-summ_fit_78 <- as_flextable(fit_78)
-summ_fit_78 %>% 
-  save_as_image("figures/summ_base_fit.png")
-```
-
-```{r}
-get_aic(
-  fit_78, fit_central_0, fit_central_1, fit_central_2, fit_central_3, fit_central_4, 
-  fit_central_5, fit_central_6, fit_central_7, fit_central_8, fit_central_9,
-  fit_central_10, fit_central_11, fit_central_12, fit_central_13
-)
-```
-
-```{r}
-effects_fit_central_7 <- parametric_effects(fit_central_7)
-effects_fit_central_10 <- parametric_effects(fit_central_10)
-effects_fit_central_11 <- parametric_effects(fit_central_11)
-effects_fit_central_12 <- parametric_effects(fit_central_12)
-effects_fit_central_3 <- parametric_effects(fit_central_3)
-effects_fit_central_5 <- parametric_effects(fit_central_5)
-effects <- bind_rows(
-  effects_fit_central_7, effects_fit_central_10, effects_fit_central_11, 
-  effects_fit_central_12, effects_fit_central_3, effects_fit_central_5
-)
-```
+# Data wrangling
 
 ```{r}
-peffects_plot <- effects %>% 
+dataset <- centralities %>% 
   mutate(
-    Centrality = factor(
-      term, 
-      levels = c(
-        "out_closeness", "page_rank", "alpha", "authority", "in_strength", "strength"
-      ),
-      labels = c(
-        "Out-closeness", "Page-rank", "Alpha", "Authority", "In-strength", "Strength"
-      )
-    )
+    incidence = new_cases / population_permanent,
+    ubn = hh_1_nbi_or_more / number_hh
   ) %>% 
-  ggplot(aes(value, partial, fill = Centrality)) +
-  geom_line(aes(color = Centrality)) +
-  geom_ribbon(aes(ymin = partial-2*se, ymax = partial+2*se), alpha = 0.1) +
-  labs(y = "Partial effect", x = "Predictor value") +
-  scale_color_npg() +
-  scale_fill_npg() +
-  theme_cowplot()
+  dplyr::select(
+    -c(
+      department:province, ubigeo, idh, life_expectancy:family_income, 
+      number_hh:aai, ntl, so2, tmmn, tmmx
+    )
+  )
+```
+
+# Univariate analysis
+
+## Descriptive tables
+
+```{r echo=FALSE}
+# statistics <- c(
+#   "{min}, {max}", "{median} ({p25}, {p75})", "{mean} ({sd})", "{skewness}", 
+#   "{kurtosis}"
+# )
+# stats_labels <- c("Range", "Median (IQR)", "Mean (SD)", "Skewness", "Kurtosis")
+# digits <- rep(2, 9)
+```
+
+### Demographics
+
+```{r echo=FALSE}
+# dataset %>% 
+#   dplyr::select(new_cases:work_rate_intra) %>% 
+#   tbl_summary(
+#     statistic = all_continuous2() ~ statistics,
+#     digits = all_continuous2() ~ digits,
+#     type = everything() ~ "continuous2"
+#   ) %>% 
+#   add_stat_label(label = all_continuous() ~ stats_labels)
+```
+
+### Centrality measures
+
+```{r}
+centralities_long <- dataset %>% 
+  dplyr::select(district, contains("centrality")) %>% 
+  tidyr::pivot_longer(
+    cols = -district,
+    names_to = c("source", "variable", "centrality", "mode"),
+    names_sep = "_"
+  ) %>% 
+  tidyr::pivot_wider(
+    id_cols = c(district, source),
+    names_from = c(variable, centrality, mode),
+    values_from = value
+  )
+```
+
+```{r echo=FALSE}
+# centralities_long %>% 
+#   tbl_summary(
+#     by = source,
+#     statistic = all_continuous2() ~ statistics,
+#     digits = all_continuous2() ~ digits,
+#     type = everything() ~ "continuous2",
+#     include = -district
+#   ) %>% 
+#   add_stat_label(label = all_continuous() ~ stats_labels)
+```
+
+## Exploratory analysis
+
+### Incidence
+
+```{r}
+bar_cases <- dataset %>% 
+  group_by(new_cases) %>% 
+  summarise(count = n(), .groups = "drop") %>% 
+  ggplot(aes(new_cases, count)) +
+  geom_col(width = 1)
+
+bar_cases
 ```
 
 ```{r}
-ggsave("figures/partial-effects.png", peffects_plot, height = 5, width = 9)
+hist_incidence <- dataset %>% 
+  ggplot(aes(incidence)) +
+  geom_histogram(bins = 7)
+
+box_incidence <- dataset %>% 
+  ggplot(aes(incidence)) +
+  geom_boxplot()
+
+hist_incidence / box_incidence
 ```
 
 ```{r}
-summ_fit_central_7 <- as_flextable(fit_central_7)
-summ_fit_central_7 %>% 
-  save_as_image("figures/summ_central_fit_out_close.png")
+hist_incidence_log <- dataset %>% 
+  ggplot(aes(incidence)) +
+  geom_histogram(bins = 7)
+
+box_incidence_log <- dataset %>% 
+  ggplot(aes(incidence)) +
+  geom_boxplot()
+
+hist_incidence_log / box_incidence_log
+```
+
+### Poverty
+
+#### Monetary poverty
+
+```{r}
+hist_monetary_poverty <- dataset %>% 
+  ggplot(aes(monetary_poverty)) +
+  geom_histogram(bins = 7)
+
+box_monetary_poverty <- dataset %>% 
+  ggplot(aes(monetary_poverty)) +
+  geom_boxplot()
+
+hist_monetary_poverty / box_monetary_poverty
+```
+#### UBN
+
+```{r}
+hist_ubn <- dataset %>% 
+  ggplot(aes(ubn)) +
+  geom_histogram(bins = 7)
+
+box_ubn <- dataset %>% 
+  ggplot(aes(ubn)) +
+  geom_boxplot()
+
+hist_ubn / box_ubn
+```
+
+### Pollution
+
+#### CO
+
+```{r}
+hist_co <- dataset %>% 
+  ggplot(aes(co)) +
+  geom_histogram(bins = 7)
+
+box_co <- dataset %>% 
+  ggplot(aes(co)) +
+  geom_boxplot()
+
+hist_co / box_co
+```
+
+#### NO2
+
+```{r}
+hist_no2 <- dataset %>% 
+  ggplot(aes(no2)) +
+  geom_histogram(bins = 7)
+
+box_no2 <- dataset %>% 
+  ggplot(aes(no2)) +
+  geom_boxplot()
+
+hist_no2 / box_no2
+```
+
+#### O3
+
+```{r}
+hist_o3 <- dataset %>% 
+  ggplot(aes(o3)) +
+  geom_histogram(bins = 7)
+
+box_o3 <- dataset %>% 
+  ggplot(aes(o3)) +
+  geom_boxplot()
+
+hist_o3 / box_o3
+```
+
+#### PM25
+
+```{r}
+hist_pm25 <- dataset %>% 
+  ggplot(aes(pm25)) +
+  geom_histogram(bins = 7)
+
+box_pm25 <- dataset %>% 
+  ggplot(aes(pm25)) +
+  geom_boxplot()
+
+hist_pm25 / box_pm25
+```
+
+### Intra-communting flow
+
+```{r}
+flow_intra_long <- dataset %>% 
+  dplyr::select(district, contains("flow")) %>% 
+  tidyr::pivot_longer(
+    cols = -district,
+    names_to = c("source", "variable", "mode"),
+    names_sep = "_"
+  ) %>% 
+  tidyr::pivot_wider(
+    id_cols = c(district, source),
+    names_from = c(variable, mode),
+    values_from = value
+  )
 ```
 
 ```{r}
-summary(fit_central_5)
+hist_flow_intra <- flow_intra_long %>%  
+  ggplot(aes(flow_intra)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_flow_intra <- flow_intra_long %>%  
+  ggplot(aes(flow_intra)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_flow_intra / box_flow_intra
+```
+
+### Centrality measures
+
+#### Degree
+
+##### Out-degree
+
+```{r}
+hist_degree_out <- centralities_long %>%  
+  dplyr::select(source, centrality_degree_out) %>% 
+  ggplot(aes(centrality_degree_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_degree_out <- centralities_long %>%  
+  dplyr::select(source, centrality_degree_out) %>% 
+  ggplot(aes(centrality_degree_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_degree_out / box_degree_out
+```
+
+#### Strength
+
+##### Out-strength
+
+```{r}
+hist_strength_out <- centralities_long %>%  
+  dplyr::select(source, centrality_strength_out) %>% 
+  ggplot(aes(centrality_strength_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_strength_out <- centralities_long %>%  
+  dplyr::select(source, centrality_strength_out) %>% 
+  ggplot(aes(centrality_strength_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_strength_out / box_strength_out
+```
+
+#### Closeness
+
+##### Out-closeness
+
+```{r}
+hist_closeness_out <- centralities_long %>%  
+  dplyr::select(source, centrality_closeness_out) %>% 
+  ggplot(aes(centrality_closeness_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_closeness_out <- centralities_long %>%  
+  dplyr::select(source, centrality_closeness_out) %>% 
+  ggplot(aes(centrality_closeness_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_closeness_out / box_closeness_out
+```
+
+#### Betweenness
+
+```{r}
+hist_betweenness_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_betweenness_directed) %>% 
+  ggplot(aes(centrality_betweenness_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_betweenness_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_betweenness_directed) %>% 
+  ggplot(aes(centrality_betweenness_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_betweenness_directed / box_betweenness_directed
+```
+
+#### Eigenvector
+
+```{r}
+hist_eigenvector_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_eigenvector_directed) %>% 
+  ggplot(aes(centrality_eigenvector_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_eigenvector_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_eigenvector_directed) %>% 
+  ggplot(aes(centrality_eigenvector_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_eigenvector_directed / box_eigenvector_directed
+```
+
+#### Page-rank
+
+```{r}
+hist_pagerank_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_pagerank_directed) %>% 
+  ggplot(aes(centrality_pagerank_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_pagerank_directed <- centralities_long %>%  
+  dplyr::select(source, centrality_pagerank_directed) %>% 
+  ggplot(aes(centrality_pagerank_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_pagerank_directed / box_pagerank_directed
+```
+
+# Multivariate analysis
+
+```{r}
+dataset %>% 
+  dplyr::select(monetary_poverty, ubn, co, no2, o3, pm25) %>% 
+  corrr::correlate(quiet = TRUE) %>% 
+  corrr::stretch(na.rm = TRUE, remove.dups = TRUE) %>% 
+  arrange(-r)
+```
+
+# Model building
+
+```{r}
+dataset_std = dataset %>% 
+  mutate(
+    across(
+      c(
+        monetary_poverty:pm25, full_flow_intra:work_centrality_pagerank_directed,
+        ubn
+      ),
+      ~as.vector(scale(.x))
+    )
+  )
+```
+
+
+## Base model
+
+```{r}
+base_linear_model_formulas = list(
+  "poverty-co-o3" = 
+    new_cases ~ offset(log(population_permanent)) + monetary_poverty + co + o3,
+  "poverty-no2-o3" = 
+    new_cases ~ offset(log(population_permanent)) + monetary_poverty + no2 + o3,
+  "poverty-pm25-o3" = 
+    new_cases ~ offset(log(population_permanent)) + monetary_poverty + pm25 + o3,
+  "ubn-co-o3" = 
+    new_cases ~ offset(log(population_permanent)) + ubn + co + o3,
+  "ubn-no2-o3" = 
+    new_cases ~ offset(log(population_permanent)) + ubn + no2 + o3,
+  "ubn-pm25-o3" = 
+    new_cases ~ offset(log(population_permanent)) + ubn + pm25 + o3
+)
 ```
 
 ```{r}
-draw(parametric_effects(fit_central_7))
+base_linear_model_formulas_df = tibble(
+  predictors = names(base_linear_model_formulas), 
+  formula = base_linear_model_formulas
+)
 ```
 
+```{r}
+base_linear_model_fits = base_linear_model_formulas_df %>% 
+  mutate(
+    glm_po_fit = purrr::map(
+      formula, ~glm(.x, data = dataset_std, family = poisson)
+    ),
+    glm_nb_fit = purrr::map(
+      formula, ~glm.nb(.x, data = dataset_std)
+    ),
+  ) %>% 
+  tidyr::pivot_longer(
+    -c(predictors, formula),
+    names_to = c("model", "family"),
+    names_pattern = "(.*)_(.*)_fit",
+    values_to = "fit"
+  )
+```
 
+```{r}
+base_linear_models = base_linear_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
 
+base_linear_models
+```
 
+```{r}
+summary(base_linear_models$fit[[1]])
+```
 
+```{r}
+check_overdispersion(base_linear_models$fit[[1]])
+```
+
+```{r}
+check_collinearity(base_linear_models$fit[[1]])
+```
+
+```{r fig.height=8}
+check_model(base_linear_models$fit[[1]])
+```
+
+```{r}
+summary(base_linear_models$fit[[2]])
+```
+
+```{r}
+check_overdispersion(base_linear_models$fit[[2]])
+```
+
+```{r}
+check_collinearity(base_linear_models$fit[[2]])
+```
+
+```{r fig.height=8}
+check_model(base_linear_models$fit[[2]])
+```
+
+```{r}
+summary(base_linear_models$fit[[3]])
+```
+
+```{r}
+check_overdispersion(base_linear_models$fit[[3]])
+```
+
+```{r}
+check_collinearity(base_linear_models$fit[[3]])
+```
+
+```{r fig.height=8}
+check_model(base_linear_models$fit[[3]])
+```
+
+```{r}
+base_additive_model_formulas = list(
+  "poverty-co-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(co) + s(o3),
+  "poverty-no2-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(no2) + s(o3),
+  "poverty-pm25-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(pm25) + s(o3),
+  "ubn-co-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(co) + s(o3),
+  "ubn-no2-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(no2) + s(o3),
+  "ubn-pm25-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) + s(o3),
+  "poverty-co" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(co),
+  "poverty-no2" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(no2),
+  "poverty-pm25" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(pm25),
+  "poverty-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(o3),
+  "ubn-co" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(co),
+  "ubn-no2" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(no2),
+  "ubn-pm25" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25),
+  "ubn-o3" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(o3)
+)
+```
+
+```{r}
+base_additive_model_formulas_df = tibble(
+  predictors = names(base_additive_model_formulas), 
+  formula = base_additive_model_formulas
+)
+```
+
+```{r}
+base_additive_model_fits = base_additive_model_formulas_df %>% 
+  mutate(
+    gam_po_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = poisson)
+    ),
+    gam_nb_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = nb())
+    ),
+  ) %>% 
+  tidyr::pivot_longer(
+    -c(predictors, formula),
+    names_to = c("model", "family"),
+    names_pattern = "(.*)_(.*)_fit",
+    values_to = "fit"
+  )
+```
+
+```{r}
+base_additive_models = base_additive_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
+
+base_additive_models
+
+# Base model: ubn + pm25
+```
+
+```{r}
+summary(base_additive_models$fit[[1]])
+```
+
+```{r}
+check_overdispersion(base_additive_models$fit[[1]])
+```
+
+```{r}
+plot(check_overdispersion(base_additive_models$fit[[1]]))
+```
+
+```{r}
+check_concurvity(base_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::appraise(base_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::draw(base_additive_models$fit[[1]])
+```
+
+```{r}
+summary(base_additive_models$fit[[2]])
+```
+
+```{r}
+check_overdispersion(base_additive_models$fit[[2]])
+```
+
+```{r}
+plot(check_overdispersion(base_additive_models$fit[[2]]))
+```
+
+```{r}
+check_concurvity(base_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::appraise(base_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::draw(base_additive_models$fit[[2]])
+```
+
+```{r}
+summary(base_additive_models$fit[[3]])
+```
+
+```{r}
+check_overdispersion(base_additive_models$fit[[3]])
+```
+
+```{r}
+plot(check_overdispersion(base_additive_models$fit[[3]]))
+```
+
+```{r}
+check_concurvity(base_additive_models$fit[[3]])
+```
+
+```{r fig.height=8}
+gratia::appraise(base_additive_models$fit[[3]])
+```
+
+```{r fig.height=8}
+gratia::draw(base_additive_models$fit[[3]])
+```
+
+```{r}
+summary(base_additive_models$fit[[6]])
+```
+
+```{r}
+check_overdispersion(base_additive_models$fit[[6]])
+```
+
+```{r}
+plot(check_overdispersion(base_additive_models$fit[[6]]))
+```
+
+```{r}
+check_concurvity(base_additive_models$fit[[6]])
+```
+
+```{r fig.height=8}
+gratia::appraise(base_additive_models$fit[[6]])
+```
+
+```{r fig.height=8}
+gratia::draw(base_additive_models$fit[[6]], residuals = TRUE)
+```
+
+```{r}
+summary(base_additive_models$fit[[7]])
+```
+
+```{r}
+check_overdispersion(base_additive_models$fit[[7]])
+```
+
+```{r}
+plot(check_overdispersion(base_additive_models$fit[[7]]))
+```
+
+```{r}
+check_concurvity(base_additive_models$fit[[7]])
+```
+
+```{r fig.height=8}
+gratia::appraise(base_additive_models$fit[[7]])
+```
+
+```{r fig.height=8}
+gratia::draw(base_additive_models$fit[[7]], residuals = TRUE)
+```
+
+## Model with mobilitization variables
+
+### Full
+
+```{r}
+# dataset %>% 
+#   filter(incidence > 0) %>% 
+#   mutate(log_incidence = log(incidence)) %>% 
+#   dplyr::select(-c(district, new_cases, population_permanent, incidence)) %>% 
+#   corrr::correlate(quiet = TRUE) %>% 
+#   corrr::focus(log_incidence) %>% 
+#   arrange(-log_incidence) %>% 
+#   filter(grepl("centrality|flow", term)) %>% 
+#   filter(grepl("full", term))
+```
+
+```{r}
+dataset_std %>% 
+  dplyr::select(
+    ubn, no2, o3, full_flow_intra, full_centrality_degree_out, 
+    full_centrality_strength_out, full_centrality_closeness_out, 
+    full_centrality_betweenness_directed, full_centrality_eigenvector_directed,
+    full_centrality_pagerank_directed
+  ) %>% 
+  # dplyr::select(!dplyr::matches("_log|_yj")) %>%
+  corrr::correlate(quiet = TRUE) %>% 
+  corrr::stretch(na.rm = TRUE, remove.dups = TRUE) %>% 
+  arrange(-r)
+```
+
+```{r}
+# dataset_trans %>% 
+#   dplyr::select(dplyr::contains("full")) %>% 
+#   dplyr::select(dplyr::matches("flow|strength_out|eigenvector|pagerank")) %>% 
+#   dplyr::select(dplyr::matches("_log")) %>%
+#   corrr::correlate(quiet = TRUE) %>% 
+#   corrr::stretch(na.rm = TRUE, remove.dups = TRUE) %>% 
+#   arrange(r)
+```
+
+```{r}
+# dataset_trans %>% 
+#   dplyr::select(dplyr::contains("full")) %>% 
+#   dplyr::select(dplyr::matches("flow|strength_out|eigenvector|pagerank")) %>% 
+#   dplyr::select(dplyr::matches("_yj")) %>%
+#   corrr::correlate(quiet = TRUE) %>% 
+#   corrr::stretch(na.rm = TRUE, remove.dups = TRUE) %>% 
+#   arrange(r)
+```
+
+```{r}
+full_additive_model_formulas = list(
+  "full_flow_intra" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_flow_intra),
+  "full_centrality_degree_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_degree_out, k = 4),
+  "full_centrality_strength_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_strength_out),
+  "full_centrality_closeness_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_closeness_out),
+  "full_centrality_betweenness_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_betweenness_directed),
+  "full_centrality_eigenvector_directed" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_eigenvector_directed),
+  "full_centrality_pagerank_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(full_centrality_pagerank_directed)
+)
+```
+
+```{r}
+full_additive_model_formulas_df = tibble(
+  predictors = names(full_additive_model_formulas), 
+  formula = full_additive_model_formulas
+)
+```
+
+```{r}
+full_additive_model_fits = full_additive_model_formulas_df %>% 
+  mutate(
+    gam_po_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = poisson)
+    ),
+    gam_nb_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = nb())
+    ),
+  ) %>% 
+  tidyr::pivot_longer(
+    -c(predictors, formula),
+    names_to = c("model", "family"),
+    names_pattern = "(.*)_(.*)_fit",
+    values_to = "fit"
+  )
+```
+
+```{r}
+full_additive_models = full_additive_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
+
+full_additive_models
+```
+
+```{r}
+summary(full_additive_models$fit[[1]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[1]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[1]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[1]], residuals = TRUE)
+```
+
+```{r}
+summary(full_additive_models$fit[[2]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[2]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[2]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[2]])
+```
+
+```{r}
+summary(full_additive_models$fit[[3]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[3]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[3]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[3]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[3]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[3]])
+```
+
+```{r}
+summary(full_additive_models$fit[[4]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[4]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[4]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[4]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[4]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[4]])
+```
+
+```{r}
+summary(full_additive_models$fit[[5]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[5]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[5]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[5]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[5]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[5]])
+```
+
+```{r}
+summary(full_additive_models$fit[[6]])
+```
+
+```{r}
+check_overdispersion(full_additive_models$fit[[6]])
+```
+
+```{r}
+plot(check_overdispersion(full_additive_models$fit[[6]]))
+```
+
+```{r}
+check_concurvity(full_additive_models$fit[[6]])
+```
+
+```{r fig.height=8}
+gratia::appraise(full_additive_models$fit[[6]])
+```
+
+```{r fig.height=8}
+gratia::draw(full_additive_models$fit[[6]])
+```
+
+### Study
+
+```{r}
+study_additive_model_formulas = list(
+  "study_flow_intra" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_flow_intra),
+  "study_centrality_degree_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_degree_out, k = 4),
+  "study_centrality_strength_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_strength_out),
+  "study_centrality_closeness_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_closeness_out),
+  "study_centrality_betweenness_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_betweenness_directed),
+  "study_centrality_eigenvector_directed" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_eigenvector_directed),
+  "study_centrality_pagerank_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(study_centrality_pagerank_directed)
+)
+```
+
+```{r}
+study_additive_model_formulas_df = tibble(
+  predictors = names(study_additive_model_formulas), 
+  formula = study_additive_model_formulas
+)
+```
+
+```{r}
+study_additive_model_fits = study_additive_model_formulas_df %>% 
+  mutate(
+    gam_po_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = poisson)
+    ),
+    gam_nb_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = nb())
+    ),
+  ) %>% 
+  tidyr::pivot_longer(
+    -c(predictors, formula),
+    names_to = c("model", "family"),
+    names_pattern = "(.*)_(.*)_fit",
+    values_to = "fit"
+  )
+```
+
+```{r}
+study_additive_models = study_additive_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
+
+study_additive_models
+```
+
+```{r}
+summary(study_additive_models$fit[[1]])
+```
+
+```{r}
+check_overdispersion(study_additive_models$fit[[1]])
+```
+
+```{r}
+plot(check_overdispersion(study_additive_models$fit[[1]]))
+```
+
+```{r}
+check_concurvity(study_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::appraise(study_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::draw(study_additive_models$fit[[1]])
+```
+
+```{r}
+summary(study_additive_models$fit[[2]])
+```
+
+```{r}
+check_overdispersion(study_additive_models$fit[[2]])
+```
+
+```{r}
+plot(check_overdispersion(study_additive_models$fit[[2]]))
+```
+
+```{r}
+check_concurvity(study_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::appraise(study_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::draw(study_additive_models$fit[[2]])
+```
+
+### Work
+
+```{r}
+work_additive_model_formulas = list(
+  "work_flow_intra" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_flow_intra),
+  "work_centrality_degree_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_degree_out, k = 4),
+  "work_centrality_strength_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_strength_out),
+  "work_centrality_closeness_out" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_closeness_out),
+  "work_centrality_betweenness_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_betweenness_directed),
+  "work_centrality_eigenvector_directed" = 
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_eigenvector_directed),
+  "work_centrality_pagerank_directed" =
+    new_cases ~ offset(log(population_permanent)) + s(ubn) + s(pm25) +
+    s(work_centrality_pagerank_directed)
+)
+```
+
+```{r}
+work_additive_model_formulas_df = tibble(
+  predictors = names(work_additive_model_formulas), 
+  formula = work_additive_model_formulas
+)
+```
+
+```{r}
+work_additive_model_fits = work_additive_model_formulas_df %>% 
+  mutate(
+    gam_po_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = poisson)
+    ),
+    gam_nb_fit = purrr::map(
+      formula, ~gam(.x, data = dataset_std, family = nb())
+    ),
+  ) %>% 
+  tidyr::pivot_longer(
+    -c(predictors, formula),
+    names_to = c("model", "family"),
+    names_pattern = "(.*)_(.*)_fit",
+    values_to = "fit"
+  )
+```
+
+```{r}
+work_additive_models = work_additive_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
+
+work_additive_models
+```
+
+```{r}
+work_additive_models = work_additive_model_fits %>% 
+  mutate(aic = purrr::map(fit, ~AIC(.x))) %>% 
+  tidyr::unnest(aic) %>% 
+  arrange(aic)
+
+work_additive_models
+```
+
+```{r}
+summary(work_additive_models$fit[[1]])
+```
+
+```{r}
+check_overdispersion(work_additive_models$fit[[1]])
+```
+
+```{r}
+plot(check_overdispersion(work_additive_models$fit[[1]]))
+```
+
+```{r}
+check_concurvity(work_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::appraise(work_additive_models$fit[[1]])
+```
+
+```{r fig.height=8}
+gratia::draw(work_additive_models$fit[[1]])
+```
+
+```{r}
+summary(work_additive_models$fit[[2]])
+```
+
+```{r}
+check_overdispersion(work_additive_models$fit[[2]])
+```
+
+```{r}
+plot(check_overdispersion(work_additive_models$fit[[2]]))
+```
+
+```{r}
+check_concurvity(work_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::appraise(work_additive_models$fit[[2]])
+```
+
+```{r fig.height=8}
+gratia::draw(work_additive_models$fit[[2]])
+```
+
+## Save models
+
+```{r}
+models_path = "data/processed/models/"
+full_filename = "full-models.rds"
+study_filename = "study-models.rds"
+work_filename = "work-models.rds"
+full_filepath = fs::path(models_path, full_filename)
+study_filepath = fs::path(models_path, study_filename)
+work_filepath = fs::path(models_path, work_filename)
+saveRDS(full_additive_models, full_filepath)
+saveRDS(study_additive_models, study_filepath)
+saveRDS(work_additive_models, work_filepath)
+```
 

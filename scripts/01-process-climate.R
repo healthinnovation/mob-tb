@@ -13,7 +13,9 @@ names(datasets) <- datasets %>%
   path_file() %>%
   path_ext_remove()
 
-dataset <- reduce(datasets, inner_join, by = "ubigeo")
+dataset <- datasets %>%
+  reduce(inner_join, by = "ubigeo")
+  # mutate(across(where(is.numeric), scales::rescale))
 
 interim_path <- path("data/interim/to-merge/")
 output_filename <- "02-climate.csv"

@@ -16,7 +16,7 @@ names(datasets) <- datasets %>%
 dataset <- reduce(datasets, inner_join, by = "ubigeo")
 
 lima <- dataset %>%
-  select(-c(sairtemp, sh, sradiation, swindspeed, urban_area))
+  select(-c(population, sairtemp, sh, sradiation, swindspeed, urban_area))
 
 output_path <- path("data/interim/")
 output_filename <- "lima.csv"
