@@ -311,5 +311,413 @@ network_plot
 # dev.off()
 ```
 
+# Univariate analysis
 
+## Descriptive tables
+
+```{r echo=FALSE}
+# statistics = c(
+#   "{min}, {max}", "{median} ({p25}, {p75})", "{mean} ({sd})", "{skewness}", 
+#   "{kurtosis}"
+# )
+# stats_labels = c("Range", "Median (IQR)", "Mean (SD)", "Skewness", "Kurtosis")
+# digits = rep(2, 9)
+```
+
+### Demographics
+
+```{r echo=FALSE}
+# dataset |> 
+#   dplyr::select(new_cases:work_rate_intra) |> 
+#   tbl_summary(
+#     statistic = all_continuous2() ~ statistics,
+#     digits = all_continuous2() ~ digits,
+#     type = everything() ~ "continuous2"
+#   ) |> 
+#   add_stat_label(label = all_continuous() ~ stats_labels)
+```
+
+### Centrality measures
+
+```{r}
+centralities_long = dataset |> 
+  dplyr::select(district, contains("centrality")) |> 
+  tidyr::pivot_longer(
+    cols = -district,
+    names_to = c("source", "variable", "centrality", "mode"),
+    names_sep = "_"
+  ) |> 
+  tidyr::pivot_wider(
+    id_cols = c(district, source),
+    names_from = c(variable, centrality, mode),
+    values_from = value
+  )
+```
+
+```{r echo=FALSE}
+# centralities_long |> 
+#   tbl_summary(
+#     by = source,
+#     statistic = all_continuous2() ~ statistics,
+#     digits = all_continuous2() ~ digits,
+#     type = everything() ~ "continuous2",
+#     include = -district
+#   ) |> 
+#   add_stat_label(label = all_continuous() ~ stats_labels)
+```
+
+## Exploratory analysis
+
+### Incidence
+
+```{r}
+bar_cases = dataset |> 
+  group_by(new_cases) |> 
+  summarise(count = n(), .groups = "drop") |> 
+  ggplot(aes(new_cases, count)) +
+  geom_col(width = 1)
+
+bar_cases
+```
+
+```{r}
+hist_incidence = dataset |> 
+  ggplot(aes(incidence)) +
+  geom_histogram(bins = 7)
+
+box_incidence = dataset |> 
+  ggplot(aes(incidence)) +
+  geom_boxplot()
+
+hist_incidence / box_incidence
+```
+
+```{r}
+hist_incidence_log = dataset |> 
+  ggplot(aes(incidence)) +
+  geom_histogram(bins = 7)
+
+box_incidence_log = dataset |> 
+  ggplot(aes(incidence)) +
+  geom_boxplot()
+
+hist_incidence_log / box_incidence_log
+```
+
+
+### Poverty
+
+#### Monetary poverty
+
+```{r}
+hist_monetary_poverty = dataset |> 
+  ggplot(aes(monetary_poverty)) +
+  geom_histogram(bins = 7)
+
+box_monetary_poverty = dataset |> 
+  ggplot(aes(monetary_poverty)) +
+  geom_boxplot()
+
+hist_monetary_poverty / box_monetary_poverty
+```
+
+#### UBN
+
+```{r}
+hist_ubn = dataset |> 
+  ggplot(aes(ubn)) +
+  geom_histogram(bins = 7)
+
+box_ubn = dataset |> 
+  ggplot(aes(ubn)) +
+  geom_boxplot()
+
+hist_ubn / box_ubn
+```
+
+### Pollution
+
+#### CO
+
+```{r}
+hist_co = dataset |> 
+  ggplot(aes(co)) +
+  geom_histogram(bins = 7)
+
+box_co = dataset |> 
+  ggplot(aes(co)) +
+  geom_boxplot()
+
+hist_co / box_co
+```
+
+#### NO2
+
+```{r}
+hist_no2 = dataset |> 
+  ggplot(aes(no2)) +
+  geom_histogram(bins = 7)
+
+box_no2 = dataset |> 
+  ggplot(aes(no2)) +
+  geom_boxplot()
+
+hist_no2 / box_no2
+```
+
+#### O3
+
+```{r}
+hist_o3 = dataset |> 
+  ggplot(aes(o3)) +
+  geom_histogram(bins = 7)
+
+box_o3 = dataset |> 
+  ggplot(aes(o3)) +
+  geom_boxplot()
+
+hist_o3 / box_o3
+```
+
+#### PM25
+
+```{r}
+hist_pm25 = dataset |> 
+  ggplot(aes(pm25)) +
+  geom_histogram(bins = 7)
+
+box_pm25 = dataset |> 
+  ggplot(aes(pm25)) +
+  geom_boxplot()
+
+hist_pm25 / box_pm25
+```
+
+### Intra-communting flow
+
+```{r}
+flow_intra_long = dataset |> 
+  dplyr::select(district, contains("flow")) |> 
+  tidyr::pivot_longer(
+    cols = -district,
+    names_to = c("source", "variable", "mode"),
+    names_sep = "_"
+  ) |> 
+  tidyr::pivot_wider(
+    id_cols = c(district, source),
+    names_from = c(variable, mode),
+    values_from = value
+  )
+```
+
+```{r}
+hist_flow_intra = flow_intra_long |>  
+  ggplot(aes(flow_intra)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_flow_intra = flow_intra_long |>  
+  ggplot(aes(flow_intra)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_flow_intra / box_flow_intra
+```
+
+### Centrality measures
+
+#### Degree
+
+##### Out-degree
+
+```{r}
+hist_degree_out = centralities_long |>  
+  dplyr::select(source, centrality_degree_out) |> 
+  ggplot(aes(centrality_degree_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_degree_out = centralities_long |>  
+  dplyr::select(source, centrality_degree_out) |> 
+  ggplot(aes(centrality_degree_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_degree_out / box_degree_out
+```
+
+#### Strength
+
+##### Out-strength
+
+```{r}
+hist_strength_out = centralities_long |>  
+  dplyr::select(source, centrality_strength_out) |> 
+  ggplot(aes(centrality_strength_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_strength_out = centralities_long |>  
+  dplyr::select(source, centrality_strength_out) |> 
+  ggplot(aes(centrality_strength_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_strength_out / box_strength_out
+```
+
+#### Closeness
+
+##### Out-closeness
+
+```{r}
+hist_closeness_out = centralities_long |>  
+  dplyr::select(source, centrality_closeness_out) |> 
+  ggplot(aes(centrality_closeness_out)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_closeness_out = centralities_long |>  
+  dplyr::select(source, centrality_closeness_out) |> 
+  ggplot(aes(centrality_closeness_out)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_closeness_out / box_closeness_out
+```
+
+#### Betweenness
+
+```{r}
+hist_betweenness_directed = centralities_long |>  
+  dplyr::select(source, centrality_betweenness_directed) |> 
+  ggplot(aes(centrality_betweenness_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_betweenness_directed = centralities_long |>  
+  dplyr::select(source, centrality_betweenness_directed) |> 
+  ggplot(aes(centrality_betweenness_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_betweenness_directed / box_betweenness_directed
+```
+
+#### Eigenvector
+
+```{r}
+hist_eigenvector_directed = centralities_long |>  
+  dplyr::select(source, centrality_eigenvector_directed) |> 
+  ggplot(aes(centrality_eigenvector_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_eigenvector_directed = centralities_long |>  
+  dplyr::select(source, centrality_eigenvector_directed) |> 
+  ggplot(aes(centrality_eigenvector_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_eigenvector_directed / box_eigenvector_directed
+```
+
+#### Page-rank
+
+```{r}
+hist_pagerank_directed = centralities_long |>  
+  dplyr::select(source, centrality_pagerank_directed) |> 
+  ggplot(aes(centrality_pagerank_directed)) +
+  geom_histogram(bins = 7) +
+  facet_wrap(~source, ncol = 3, scales = "free")
+
+box_pagerank_directed = centralities_long |>  
+  dplyr::select(source, centrality_pagerank_directed) |> 
+  ggplot(aes(centrality_pagerank_directed)) +
+  geom_boxplot() +
+  facet_wrap(~source, ncol = 3, scales = "free")
+```
+
+```{r fig.width=6}
+hist_pagerank_directed / box_pagerank_directed
+```
+
+```{r}
+ranking = tibble(
+  incidence = dataset |> arrange(desc(incidence)) |> pull(district),
+  full_flow_intra = dataset |> arrange(desc(full_flow_intra)) |> pull(district),
+  study_flow_intra = dataset |> arrange(desc(study_flow_intra)) |> pull(district),
+  work_flow_intra = dataset |> arrange(desc(work_flow_intra)) |> pull(district),
+  full_centrality_degree_out = dataset |> 
+    arrange(desc(full_centrality_degree_out)) |> 
+    pull(district),
+  study_centrality_degree_out = dataset |> 
+    arrange(desc(study_centrality_degree_out)) |> 
+    pull(district),
+  work_centrality_degree_out = dataset |> 
+    arrange(desc(work_centrality_degree_out)) |> 
+    pull(district),
+  full_centrality_strength_out = dataset |> 
+    arrange(desc(full_centrality_strength_out)) |> 
+    pull(district),
+  study_centrality_strength_out = dataset |> 
+    arrange(desc(study_centrality_strength_out)) |> 
+    pull(district),
+  work_centrality_strength_out = dataset |> 
+    arrange(desc(work_centrality_strength_out)) |> 
+    pull(district),
+  full_centrality_closeness_out = dataset |> 
+    arrange(desc(full_centrality_closeness_out)) |> 
+    pull(district),
+  study_centrality_closeness_out = dataset |> 
+    arrange(desc(study_centrality_closeness_out)) |> 
+    pull(district),
+  work_centrality_closeness_out = dataset |> 
+    arrange(desc(work_centrality_closeness_out)) |> 
+    pull(district),
+  full_centrality_betweenness_directed = dataset |> 
+    arrange(desc(full_centrality_betweenness_directed)) |> 
+    pull(district),
+  study_centrality_betweenness_directed = dataset |> 
+    arrange(desc(study_centrality_betweenness_directed)) |> 
+    pull(district),
+  work_centrality_betweenness_directed = dataset |> 
+    arrange(desc(work_centrality_betweenness_directed)) |> 
+    pull(district),
+  full_centrality_eigenvector_directed = dataset |> 
+    arrange(desc(full_centrality_eigenvector_directed)) |> 
+    pull(district),
+  study_centrality_eigenvector_directed = dataset |> 
+    arrange(desc(study_centrality_eigenvector_directed)) |> 
+    pull(district),
+  work_centrality_eigenvector_directed = dataset |> 
+    arrange(desc(work_centrality_eigenvector_directed)) |> 
+    pull(district),
+  full_centrality_pagerank_directed = dataset |> 
+    arrange(desc(full_centrality_pagerank_directed)) |> 
+    pull(district),
+  study_centrality_pagerank_directed = dataset |> 
+    arrange(desc(study_centrality_pagerank_directed)) |> 
+    pull(district),
+  work_centrality_pagerank_directed = dataset |> 
+    arrange(desc(work_centrality_pagerank_directed)) |> 
+    pull(district),
+)
+```
+
+```{r}
+readr::write_csv(ranking, "data/processed/ranking.csv")
+```
 

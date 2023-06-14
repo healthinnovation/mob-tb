@@ -1,84 +1,113 @@
 library(dplyr)
 library(tidygraph)
+library(igraph)
 
-processed_path <- fs::path("data/processed/")
+nodes = readr::read_csv("data/processed/nodes.csv", col_types = "ccccd")
+edges = readr::read_csv("data/processed/edges.csv", col_types = "cccd")
 
-nodes_filename <- "nodes.csv"
-nodes_filepath <- fs::path(processed_path, nodes_filename)
-nodes <- readr::read_csv(nodes_filepath, col_types = "ccccd")
+edges = edges |>
+  group_by(type) |>
+  filter(origin != destination) |>
+  ungroup()
 
-edges_filename <- "edges.csv"
-edges_filepath <- fs::path(processed_path, edges_filename)
-edges <- readr::read_csv(edges_filepath, col_types = "cccd")
-
-get_centralities <- function(graph, weight) {
-  graph_centralities <- graph %>%
+get_node_properties = function(graph, weight) {
+  graph_centralities = graph |>
+    activate(nodes) |>
     mutate(
-      centrality_degree_in = centrality_degree(
-        mode = "in", normalized = TRUE
+      centrality_degree_in = degree(
+        graph, mode = "in", normalized = TRUE
       ),
-      centrality_degree_out = centrality_degree(
-        mode = "out", normalized = TRUE
+      centrality_degree_out = degree(
+        graph, mode = "out", normalized = TRUE
       ),
-      centrality_degree_all = centrality_degree(
-        mode = "all", normalized = TRUE
+      centrality_degree_all = degree(
+        graph, mode = "all", normalized = TRUE
       ),
-      centrality_strength_in = centrality_degree(
-        weights = {{weight}}, mode = "in", normalized = TRUE
+      centrality_strength_in = strength(
+        graph, mode = "in"
       ),
-      centrality_strength_out = centrality_degree(
-        weights = {{weight}}, mode = "out", normalized = TRUE
+      centrality_strength_out = strength(
+        graph, mode = "out"
       ),
-      centrality_strength_all = centrality_degree(
-        weights = {{weight}}, mode = "all", normalized = TRUE
+      centrality_strength_all = strength(
+        graph, mode = "all"
       ),
-      centrality_closeness_in = centrality_closeness(
-        weights = 1 / {{weight}}, mode = "in", normalized = TRUE
+      centrality_closeness_in = closeness(
+        graph, weights = 1 / E(graph)$weight, mode = "in", normalized = TRUE
       ),
-      centrality_closeness_out = centrality_closeness(
-        weights = 1 / {{weight}}, mode = "out", normalized = TRUE
+      centrality_closeness_out = closeness(
+        graph, weights = 1 / E(graph)$weight, mode = "out", normalized = TRUE
       ),
-      centrality_closeness_all = centrality_closeness(
-        weights = 1 / {{weight}}, mode = "all", normalized = TRUE
+      centrality_closeness_all = closeness(
+        graph, weights = 1 / E(graph)$weight, mode = "all", normalized = TRUE
       ),
-      centrality_betweenness_directed = centrality_betweenness(
-        weights = 1 / {{weight}}, directed = TRUE, normalized = TRUE
+      centrality_betweenness_weighted = betweenness(
+        graph, weights = 1 / E(graph)$weight, directed = TRUE, normalized = TRUE
       ),
-      centrality_eigenvector_directed = centrality_eigen(
-        weights = {{weight}}, directed = TRUE, scale = TRUE
+      centrality_eigenvector_weighted = eigen_centrality(
+        graph, weights = 1 / E(graph)$weight, directed = TRUE, scale = TRUE
+      )$vector,
+      centrality_pagerank_weighted = page_rank(
+        graph, weights = 1 / E(graph)$weight, directed = TRUE
+      )$vector,
+      structural_eccentricity_in = eccentricity(
+        graph, mode = "in"
       ),
-      centrality_pagerank_directed = centrality_pagerank(
-        weights = {{weight}}, directed = TRUE
+      structural_eccentricity_out = eccentricity(
+        graph, mode = "out"
+      ),
+      structural_eccentricity_all = eccentricity(
+        graph, mode = "all"
+      ),
+      structural_transitivity_local = transitivity(
+        as.undirected(graph, mode = "collapse", edge.attr.comb = "sum"),
+        type = "local"
+      ),
+      structural_transitivity_weighted = transitivity(
+        as.undirected(graph, mode = "collapse", edge.attr.comb = "sum"),
+        type = "barrat"
+      ),
+      structural_knn_outout = knn(
+        graph, mode = "out", neighbor.degree.mode = "out"
+      )$knn,
+      structural_knn_outin = knn(
+        graph, mode = "out", neighbor.degree.mode = "in"
+      )$knn,
+      structural_knn_inout = knn(
+        graph, mode = "in", neighbor.degree.mode = "out"
+      )$knn,
+      structural_knn_inin = knn(
+        graph, mode = "in", neighbor.degree.mode = "in"
+      )$knn,
+      structural_constraint_weighted = constraint(
+        graph
       )
-    ) %>%
-    activate(nodes) %>%
+    ) |>
     tibble::as_tibble()
 }
 
-centralities_nested <- edges %>%
-  tidyr::nest(edges = -source) %>%
+graphs = edges |>
+  tidyr::nest(edges = -type) |>
   mutate(
     graph = purrr::map(
       edges, ~ tbl_graph(
         nodes = nodes, edges = .x, directed = TRUE, node_key = "ubigeo"
       )
     ),
-    centrality = purrr::map(graph, ~ get_centralities(.x, weight = cases))
+    node_properties = purrr::map(graph, ~ get_node_properties(.x, weight = weight))
   )
 
-centralities_long <- centralities_nested %>%
-  tidyr::unnest(centrality) %>%
+districts_long = graphs |>
+  tidyr::unnest(node_properties) |>
   select(-c(edges, graph))
 
-centralities <- centralities_long %>%
+districts = districts_long |>
   tidyr::pivot_wider(
-    id_cols = department:work_flow_intra, names_from = source,
-    names_glue = "{source}_{.value}",
-    values_from = centrality_degree_in:centrality_pagerank_directed
+    id_cols = district:work_centrality_strength_intra, names_from = type,
+    names_glue = "{type}_{.value}",
+    values_from = centrality_degree_in:structural_constraint_weighted
   )
 
-centralities_filename <- "centralities.csv"
-centralities_filepath <- fs::path(processed_path, centralities_filename)
-readr::write_csv(centralities, centralities_filepath, na = "")
+readr::write_csv(districts, "data/processed/districts.csv", na = "")
 
 
