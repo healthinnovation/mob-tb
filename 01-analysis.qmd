@@ -7,6 +7,9 @@ editor: source
 
 ```{r}
 library(dplyr)
+```
+
+```{r}
 library(tidyr)
 library(ggplot2)
 library(gtsummary)
@@ -19,9 +22,9 @@ library(performance)
 ```
 
 ```{r}
-districts = readr::read_csv(
+districts <- readr::read_csv(
   "data/processed/districts.csv",
-  col_types = "ccdddddddddccd"
+  col_types = sprintf("ciccccci%s", paste0(rep("d", 75), collapse = ""))
 )
 ```
 
@@ -32,72 +35,118 @@ glimpse(districts)
 ## Cumulative incidence rate (CIR)
 
 ```{r}
-districts_cir = districts |> 
+districts_analysis <- districts |> 
+  mutate(
+    total_population = total_centrality_strength_intra + total_centrality_strength_all,
+    study_population = study_centrality_strength_intra + study_centrality_strength_all,
+    work_population = work_centrality_strength_intra + work_centrality_strength_all
+  ) |>  
+  mutate(
+    across(starts_with("total_centrality_strength"), \(x) 100 * x / total_population),
+    across(starts_with("study_centrality_strength"), \(x) 100 * x / study_population),
+    across(starts_with("work_centrality_strength"), \(x) 100 * x / work_population)
+  ) |> 
+  mutate(
+    across(
+      c(total_population, study_population, work_population), 
+      \(x) 100000 * x / population_permanent, .names = "{.col}_rate"
+    )
+  ) |> 
+  mutate(
+    across(
+      total_centrality_degree_in:work_centrality_degree_all,
+      \(x) 100 * x
+    )
+  ) |> 
   mutate(
     cir = 100000 * new_cases / population_permanent,
-    ubn = hh_1_nbi_or_more / number_hh,
     subregion = factor(
-      subregion, levels = c("North Lima", "East Lima", "Center Lima", "South Lima")
+      subregion, 
+      levels = c("North Lima", "East Lima", "Center Lima", "South Lima"),
+      labels = c("Lima Norte", "Lima Este", "Lima Centro", "Lima Sur")
     )
   ) 
 ```
 
-## CIR by subregions 
+## Analysis by subregions 
 
 ```{r}
-# cir_subregions_table = districts_cir |>
-#   tbl_summary(
-#     by = subregion,
-#     missing = "no",
-#     type = cir ~ "continuous2",
-#     statistic = cir ~ c(
-#       "{mean} ({sd})", "{median} ({p25}, {p75})", "{min}, {max}"
-#     ),
-#     digits = cir ~ 2,
-#     include = c(subregion, cir)
-#   )
+cir_subregions_table = districts_analysis |>
+  gtsummary::tbl_summary(
+    by = subregion,
+    missing = "no",
+    type = cir ~ "continuous2",
+    statistic = cir ~ c(
+      "{mean} ({sd})", "{median} ({p25}, {p75})", "{min}, {max}"
+    ),
+    digits = cir ~ 2,
+    include = c(subregion, cir)
+  )
+cir_subregions_table
 ```
 
 ```{r}
-districts_cir |> 
+districts_analysis |> 
   group_by(subregion) |> 
   summarise(new_cases = sum(new_cases), .groups = "drop") |> 
   mutate(prop_cases = 100 * new_cases / sum(new_cases))
 ```
 
-
 ```{r}
-districts_cir |> 
+subregion_cir <- districts_analysis |> 
   group_by(subregion) |> 
   summarise(
-    pop = sum(population_permanent),
+    population = sum(population_permanent),
     new_cases = sum(new_cases),
+    cir_mean = mean(cir),
     .groups = "drop"
   ) |>
-  mutate(cir = 100000 * new_cases / pop)
+  mutate(
+    prop_cases = 100 * new_cases / sum(new_cases),
+    cir = 100000 * new_cases / population
+  )
+subregion_cir
 ```
 
-Lima Este es la subregión con mayor incidencia acumulada en el 2017, con 131.91 nuevos casos por 100000 habitantes, seguida de Lima Sur con 114.09 nuevos casos por 100000 habitantes, Lima Norte con 103.64 nuevos casos por 100000 habitantes, y por último Lima Centro con 88.53 nuevos casos por 100000 habitantes.
+Lima Este es la subregión con mayor incidencia acumulada en el 2017, con 131.91 nuevos casos por 100000 habitantes, seguida de Lima Sur con 114.09 nuevos casos por 100000 habitantes, Lima Norte con 103.64 nuevos casos por 100000 habitantes, y por último Lima Centro con 88.53 nuevos casos por 100000 habitantes. 
 
 ```{r}
 #| fig.height: 3
 #| fig.width: 3
-nejm_pal = ggsci::pal_nejm(alpha = 0.9)(8)
+nejm_pal <- ggsci::pal_nejm(alpha = 0.9)(8)
 # scales::show_col(nejm_pal)
 ```
 
 ```{r}
-subregions_colors = nejm_pal[1:4]
-names(subregions_colors) = levels(districts_cir$subregion)
+# subregions_colors = nejm_pal[1:4]
+subregions_colors <- c("#0cc0aa", "#154e56", "#b4dbe7", "#539ab3")
+names(subregions_colors) <- levels(districts_analysis$subregion)
 ```
 
 ```{r}
-# districts_cir |> 
+# districts_analysis |> 
 #   ggplot(aes(subregion, cir, fill = subregion)) +
 #   geom_boxplot() +
 #   scale_fill_manual(values = subregions_colors, guide = "none") +
 #   theme_classic()
 ```
+
+```{r}
+subregion_cir_plot <- subregion_cir |> 
+  ggplot(aes(reorder(subregion, cir), cir, fill = subregion)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_manual(values = subregions_colors) +
+  labs(
+    x = "Subregiones", y = "Incidencia",
+    title = "A) Incidencia anual por 100,000 habitantes en 2017 por subregion en Lima"
+  ) +
+  theme_classic() +
+  theme(legend.position = "none")
+
+subregion_cir_plot
+```
+
 
 ```{r}
 #| fig.height: 3
@@ -109,17 +158,17 @@ names(subregions_colors) = levels(districts_cir$subregion)
 ```{r}
 library(sf)
 data("Peru", package = "innovar")
-peru = select(Peru, ubigeo, dep, prov, distr)
+peru <- select(Peru, ubigeo, dep, prov, distr)
 ```
 
 ```{r}
-districts_cir_polygons = districts_cir |> 
+districts_analysis_polygons <- districts_analysis |> 
   left_join(peru, by = "ubigeo") |> 
   st_as_sf()
 ```
 
 ```{r}
-subregions_polygons = districts_cir_polygons |> 
+subregions_polygons <- districts_analysis_polygons |> 
   group_by(subregion) |> 
   summarise() |> 
   ungroup() |> 
@@ -127,7 +176,7 @@ subregions_polygons = districts_cir_polygons |>
 ```
 
 ```{r}
-subregion_map = ggplot(districts_cir_polygons, aes(fill = subregion)) +
+subregion_map <- ggplot(districts_analysis_polygons, aes(fill = subregion)) +
   geom_sf(color = "white", size = 0.05) +
   geom_sf(data = subregions_polygons, color = "black", fill = "transparent") +
   scale_fill_manual(values = subregions_colors) +
@@ -136,10 +185,22 @@ subregion_map = ggplot(districts_cir_polygons, aes(fill = subregion)) +
 subregion_map
 ```
 
+```{r}
+districts_analysis_centroids <- districts_analysis |> 
+  left_join(peru, by = "ubigeo") |> 
+  st_as_sf() |> 
+  st_centroid() 
+
+coordinate_layout <- districts_analysis_centroids |> 
+  st_coordinates() |> 
+  as_tibble() |> 
+  rename_with(tolower)
+```
+
 ## Commuting flows 
 
 ```{r}
-edges = readr::read_csv("data/processed/edges.csv", col_types = "cccd")
+edges <- readr::read_csv("data/processed/edges.csv", col_types = "cccd")
 ```
 
 ```{r}
@@ -150,14 +211,143 @@ edges |>
 
 En cifras absolutas, 2462577 personas se movilizaron para estudiar, 3714535 para trabajar, y 6027237 ya sea para estudiar o trabajar o ambos. 
 
-### Commuting flows by subregions
-
 ```{r}
-subregions = select(districts, ubigeo, subregion) 
+graphs <- edges |>
+  rename(weight = weight) |> 
+  tidyr::nest(edges = -type) |>
+  mutate(
+    graph_raw = purrr::map(
+      edges, ~ tbl_graph(
+        nodes = districts_analysis, edges = .x, directed = TRUE, node_key = "ubigeo"
+      )
+    ),
+    graph = purrr::map(
+      graph_raw, ~ as_tbl_graph(simplify(.x, remove.multiple = FALSE))
+    ),
+    order = purrr::map(graph, ~ gorder(.x)),
+    size = purrr::map(graph, ~ gsize(.x)),
+    density = purrr::map(graph, ~ edge_density(.x)),
+    density_weighted = purrr::map(edges, ~ mean(.x$weight)),
+    transitivity = purrr::map(graph, ~ transitivity(.x)),
+    diameter = purrr::map(graph, ~ diameter(.x)),
+    radius = purrr::map(graph, ~ radius(.x)),
+    mean_dist = purrr::map(graph, ~ mean_distance(.x)),
+    adhesion = purrr::map(graph, ~ edge_connectivity(.x)),
+    cohesion = purrr::map(graph, ~ vertex_connectivity(.x)),
+    reciprocity = purrr::map(graph, ~ reciprocity(.x)),
+    assortativity_degree = purrr::map(graph, ~ assortativity_degree(.x)),
+    assortativity_cir = purrr::map(graph, ~ assortativity(.x, types1 = V(.x)$cir))
+  ) 
+
+graphs |> 
+  unnest(order:assortativity_cir) |> 
+  select(-c(edges:graph))
 ```
 
 ```{r}
-edges_subregions_raw = edges |>
+total_flow_lima <- ggraph(graphs$graph[[1]], coordinate_layout) +
+  geom_sf(
+    data = subregions_polygons, aes(fill = subregion), color = "black",
+    alpha = 0.5
+  ) +
+  geom_sf(
+    data = districts_analysis_polygons, fill = "transparent", color = "white", 
+    size = 0.05
+  ) +
+  geom_sf(data = subregions_polygons, color = "black", fill = "transparent", linewidth = 0.8) +
+  geom_edge_arc(alpha = 0.08, strength = 0.1) +
+  geom_node_point() +
+  scale_fill_manual(values = subregions_colors) +
+  labs(
+    title = "Flujo distrito a distrito en la provincia de Lima representado como un grafo", 
+    fill = "Subregión"
+  ) +
+  theme_void()
+
+total_flow_lima
+```
+
+```{r}
+#| eval: false
+ggsave(
+  "figures/total_flow_lima.png", 
+  total_flow_lima, height = 13, 
+  width = 13.5
+)
+```
+
+```{r}
+study_flow_lima <- ggraph(graphs$graph[[2]], coordinate_layout) +
+  geom_sf(
+    data = subregions_polygons, aes(fill = subregion), color = "black",
+    alpha = 0.5
+  ) +
+  geom_sf(
+    data = districts_analysis_polygons, fill = "transparent", color = "white", 
+    size = 0.05
+  ) +
+  geom_sf(data = subregions_polygons, color = "black", fill = "transparent", linewidth = 0.8) +
+  geom_edge_arc(alpha = 0.08, strength = 0.1) +
+  geom_node_point() +
+  scale_fill_manual(values = subregions_colors) +
+  labs(
+    title = "Figura 1. Flujo de movilización de estudiantes entre distritos de Lima\nrepresentado como un grafo", 
+    fill = "Subregión"
+  ) +
+  theme_void()
+
+study_flow_lima
+```
+
+```{r}
+#| eval: false
+ggsave(
+  "figures/study_flow_lima.png", 
+  study_flow_lima, height = 11, 
+  width = 11.5
+)
+```
+
+```{r}
+work_flow_lima <- ggraph(graphs$graph[[1]], coordinate_layout) +
+  geom_sf(
+    data = subregions_polygons, aes(fill = subregion), color = "black",
+    alpha = 0.5
+  ) +
+  geom_sf(
+    data = districts_analysis_polygons, fill = "transparent", color = "white", 
+    size = 0.05
+  ) +
+  geom_sf(data = subregions_polygons, color = "black", fill = "transparent", linewidth = 0.8) +
+  geom_edge_arc(alpha = 0.08, strength = 0.1) +
+  geom_node_point() +
+  scale_fill_manual(values = subregions_colors) +
+  labs(
+    title = "Flujo distrito a distrito en la provincia de Lima representado como un grafo", 
+    fill = "Subregión"
+  ) +
+  theme_void()
+
+work_flow_lima
+```
+
+```{r}
+#| eval: false
+ggsave(
+  "figures/work_flow_lima.png", 
+  work_flow_lima, height = 13, 
+  width = 13.5
+)
+```
+
+### Commuting flows by subregions
+
+```{r}
+subregions <- select(districts_analysis, ubigeo, subregion) 
+```
+
+```{r}
+edges_subregions_raw <- edges |>
   left_join(subregions, by = c("origin" = "ubigeo")) |>
   left_join(
     subregions, by = c("destination" = "ubigeo"),
@@ -166,19 +356,19 @@ edges_subregions_raw = edges |>
 ```
 
 ```{r}
-edges_subregions = edges_subregions_raw |> 
+edges_subregions <- edges_subregions_raw |> 
   group_by(type, subregion_origin, subregion_destination) |>
   summarise(weight = sum(weight), .groups = "drop")
 ```
 
 ```{r}
-edges_subregions_total = edges_subregions |> 
+edges_subregions_total <- edges_subregions |> 
   filter(type == "total") |> 
   select(-type)
 ```
 
 ```{r}
-nodes_subregions = districts_cir |> 
+nodes_subregions <- districts_analysis |> 
   group_by(name = subregion) |> 
   summarise(
     n_districts = n(),
@@ -187,7 +377,7 @@ nodes_subregions = districts_cir |>
 ```
 
 ```{r}
-graphs_subregions = edges_subregions %>%
+graphs_subregions <- edges_subregions %>%
   tidyr::nest(edges = -type) %>%
   mutate(
     graph_raw = purrr::map(
@@ -205,7 +395,7 @@ graphs_subregions = edges_subregions %>%
 #### Study
 
 ```{r}
-study_subregions_adjacency = igraph::as_adjacency_matrix(
+study_subregions_adjacency <- igraph::as_adjacency_matrix(
    graphs_subregions$graph_raw[[1]], attr = "weight", sparse = FALSE
   )
 
@@ -252,27 +442,46 @@ round(100 * study_subregions_adjacency / colSums(study_subregions_adjacency), 2)
 ```{r}
 #| fig.height: 3
 #| fig.width: 3
-study_flow_chordplot = ggplotify::as.ggplot(
+study_flow_chordplot <- ggplotify::as.ggplot(
     ~circlize::chordDiagram(
-      graphs_subregions$edges[[1]],
-      # filter(
-      #   graphs_subregions$edges[[1]], subregion_origin != subregion_destination
-      # ),
+      filter(
+        graphs_subregions$edges[[1]], subregion_origin != subregion_destination
+      ),
       directional = 1, 
-      annotationTrack = c("name", "grid"),
-      grid.col = subregions_colors
+      annotationTrack = c("name", "grid", "axis"),
+      grid.col = subregions_colors, 
+      scale = TRUE,
+      link.sort = TRUE, link.decreasing = TRUE
     )
   ) + 
   theme_void() +
-  labs(title = "B")
+  labs(title = "B) Flujo de movilización de estudiantes entre subregiones")
 
 study_flow_chordplot
+```
+
+```{r}
+library(patchwork)
+```
+
+```{r}
+subregion_cir_study_chord <- subregion_cir_plot / study_flow_chordplot +
+  plot_layout(heights = c(1, 2.5)) +
+  plot_annotation(title = "Figura 2. Incidencia de TB y flujo de movilización de estudiantes\na nivel subregional en Lima")
+subregion_cir_study_chord
+```
+
+```{r}
+ggsave(
+  "figures/subregion_cir_study_chord.png", subregion_cir_study_chord,
+  width = 7.3, height = 10, bg = "transparent"
+)
 ```
 
 #### Work 
 
 ```{r}
-work_subregions_adjacency = igraph::as_adjacency_matrix(
+work_subregions_adjacency <- igraph::as_adjacency_matrix(
    graphs_subregions$graph[[3]], attr = "weight", sparse = FALSE
   )
 
@@ -314,23 +523,40 @@ round(100 * work_subregions_adjacency / colSums(work_subregions_adjacency), 2)
 ```{r}
 #| fig.height: 3
 #| fig.width: 3
-work_flow_chordplot = ggplotify::as.ggplot(
+work_flow_chordplot <- ggplotify::as.ggplot(
     ~circlize::chordDiagram(
-      graphs_subregions$edges[[3]], directional = 1, 
-      annotationTrack = c("name", "grid"),
-      grid.col = subregions_colors
+      filter(
+        graphs_subregions$edges[[3]], subregion_origin != subregion_destination
+      ),
+      directional = 1, 
+      annotationTrack = c("name", "grid", "axis"),
+      grid.col = subregions_colors, 
+      scale = TRUE,
+      link.sort = TRUE, link.decreasing = TRUE
     )
   ) + 
   theme_void() +
-  labs(title = "B")
-
+  labs(title = "B) Flujo de movilización hacia centros de trabajo de subregión a subregión")
 work_flow_chordplot
+```
+
+```{r}
+subregion_cir_work_chord <- subregion_cir_plot / work_flow_chordplot +
+  plot_layout(heights = c(1, 2.5))
+subregion_cir_work_chord
+```
+
+```{r}
+ggsave(
+  "figures/subregion_cir_work_chord.png", subregion_cir_work_chord,
+  width = 11.3, height = 15, bg = "transparent"
+)
 ```
 
 #### Study or work or both
 
 ```{r}
-total_subregions_adjacency = igraph::as_adjacency_matrix(
+total_subregions_adjacency <- igraph::as_adjacency_matrix(
    graphs_subregions$graph[[2]], attr = "weight", sparse = FALSE
   )
 
@@ -370,25 +596,42 @@ round(100 * total_subregions_adjacency / colSums(total_subregions_adjacency), 2)
 - Un total de 965891 personas se movilizaron hacia Lima Sur para estudiar o trabajar o ambos. De este total, el 89.82% provenía de la misma subregión y el restante 10.18% de otras subregiones. 
 
 ```{r}
+chord_plot <- function() {
+  par(cex = 3, mar = c(0, 0, 0, 0))
+  circlize::chordDiagram(
+    filter(
+      graphs_subregions$edges[[2]], subregion_origin != subregion_destination
+    ),
+    directional = 1, 
+    annotationTrack = c("name", "grid", "axis"),
+    grid.col = subregions_colors, 
+    scale = TRUE,
+    link.sort = TRUE, link.decreasing = TRUE
+  )
+}
+total_chord_plot <- chord_plot()
+```
+
+
+```{r}
 #| fig.height: 3
 #| fig.width: 3
-total_flow_chordplot = ggplotify::as.ggplot(
+total_flow_chordplot <- ggplotify::as.ggplot(
     ~circlize::chordDiagram(
-      graphs_subregions$edges[[2]], directional = 1, 
-      annotationTrack = c("name", "grid"),
-      grid.col = subregions_colors
+      filter(
+        graphs_subregions$edges[[2]], subregion_origin != subregion_destination
+      ),
+      directional = 1, 
+      annotationTrack = c("name", "grid", "axis"),
+      grid.col = subregions_colors, 
+      scale = TRUE,
+      link.sort = TRUE, link.decreasing = TRUE
     )
   ) + 
   theme_void() +
-  labs(title = "B")
+  labs(title = "B) Flujo de movilización hacia instituciones educativas o centros de trabajo de subregión a subregión")
 
 total_flow_chordplot
-```
-
-```{r}
-library(patchwork)
-subregion_map + total_flow_chordplot &
-  theme_void()
 ```
 
 ```{r}
@@ -398,21 +641,41 @@ subregion_map + total_flow_chordplot &
 # )
 ```
 
-## CIR by districts
-
 ```{r}
-sum(districts_cir$new_cases)
+subregion_cir_total_chord <- subregion_cir_plot / total_flow_chordplot +
+  plot_layout(heights = c(1, 2.5))
+subregion_cir_total_chord
 ```
 
 ```{r}
-summary(districts_cir$cir)
-sd(districts_cir$cir)
+# ggsave(
+#   "figures/subregion_cir_total_chord.png", subregion_cir_total_chord,
+#   width = 12, height = 6.5, bg = "transparent"
+# )
+```
+
+```{r}
+ggsave(
+  "figures/subregion_cir_total_chord.png", subregion_cir_total_chord,
+  width = 11.3, height = 15, bg = "transparent"
+)
+```
+
+## Analysis by districts
+
+```{r}
+sum(districts_analysis$new_cases)
+```
+
+```{r}
+summary(districts_analysis$cir)
+sd(districts_analysis$cir)
 ```
 
 En promedio, hubieron 90 nuevos casos de TB por 100000 habitantes (SD = 48.23) a nivel distrital en el 2017.
 
 ```{r}
-districts_cir |> 
+districts_analysis |> 
   arrange(cir) |> 
   select(district, ubigeo, name_code, cir, subregion)
 ```
@@ -421,60 +684,10 @@ El distrito con mayor incidencia acumulada fue La Victoria en la subregion de Li
 
 ## Commuting flow by districts
 
-```{r}
-graphs = edges |>
-  rename(weight = weight) |> 
-  tidyr::nest(edges = -type) |>
-  mutate(
-    graph_raw = purrr::map(
-      edges, ~ tbl_graph(
-        nodes = districts_cir, edges = .x, directed = TRUE, node_key = "ubigeo"
-      )
-    ),
-    graph = purrr::map(
-      graph_raw, ~ as_tbl_graph(simplify(.x, remove.multiple = FALSE))
-    ),
-    order = purrr::map(graph, ~ gorder(.x)),
-    size = purrr::map(graph, ~ gsize(.x)),
-    density = purrr::map(graph, ~ edge_density(.x)),
-    density_weighted = purrr::map(edges, ~ mean(.x$weight)),
-    transitivity = purrr::map(graph, ~ transitivity(.x)),
-    diameter = purrr::map(graph, ~ diameter(.x)),
-    radius = purrr::map(graph, ~ radius(.x)),
-    mean_dist = purrr::map(graph, ~ mean_distance(.x)),
-    adhesion = purrr::map(graph, ~ edge_connectivity(.x)),
-    cohesion = purrr::map(graph, ~ vertex_connectivity(.x)),
-    reciprocity = purrr::map(graph, ~ reciprocity(.x)),
-    assortativity_degree = purrr::map(graph, ~ assortativity_degree(.x)),
-    assortativity_cir = purrr::map(graph, ~ assortativity(.x, types1 = V(.x)$cir))
-  ) 
-
-graphs |> 
-  unnest(order:assortativity_cir) |> 
-  select(-c(edges:graph))
-```
-
 ### Properties
 
 ```{r}
-districts_properties = districts_cir |> 
-  mutate(
-    across(
-      c(
-        total_centrality_strength_intra:work_centrality_strength_intra,
-        total_centrality_strength_in:work_centrality_strength_all
-      ),
-      \(x) 1000000 * x / population_permanent
-    ),
-    across(
-      total_centrality_degree_in:work_centrality_degree_all,
-      \(x) 100 * x
-    )
-  )
-```
-
-```{r}
-districts_properties_long = districts_properties |> 
+districts_analysis_long <- districts_analysis |> 
   pivot_longer(
     cols = total_centrality_strength_intra:work_structural_constraint_weighted,
     names_to = c("type", "property", "measure", "mode"),
@@ -484,7 +697,7 @@ districts_properties_long = districts_properties |>
 ```
 
 ```{r}
-degree_table = districts_properties_long |> 
+degree_table <- districts_analysis_long |> 
   filter(measure == "degree") |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -503,7 +716,7 @@ degree_table
 ```
 
 ```{r}
-strength_table = districts_properties_long |> 
+strength_table <- districts_analysis_long |> 
   filter(measure == "strength") |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -523,7 +736,7 @@ strength_table
 ```
 
 ```{r}
-closeness_table = districts_properties_long |> 
+closeness_table <- districts_analysis_long |> 
   filter(measure == "closeness") |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -542,7 +755,7 @@ closeness_table
 ```
 
 ```{r}
-other_centralities_table = districts_properties_long |> 
+other_centralities_table <- districts_analysis_long |> 
   filter(measure %in% c("betweenness", "eigenvector", "pagerank")) |> 
   pivot_wider(
     id_cols = district:property, names_from = measure, values_from = value
@@ -561,7 +774,7 @@ other_centralities_table
 ```
 
 ```{r}
-eccentricity_table = districts_properties_long |> 
+eccentricity_table <- districts_analysis_long |> 
   filter(measure == c("eccentricity")) |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -580,7 +793,7 @@ eccentricity_table
 ```
 
 ```{r}
-knn_table = districts_properties_long |> 
+knn_table <- districts_analysis_long |> 
   filter(measure == c("knn")) |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -599,7 +812,7 @@ knn_table
 ```
 
 ```{r}
-constraint_table = districts_properties_long |> 
+constraint_table <- districts_analysis_long |> 
   filter(measure == c("constraint")) |> 
   pivot_wider(
     id_cols = district:property, names_from = mode, values_from = value
@@ -622,7 +835,7 @@ constraint_table
 #### Study
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(starts_with("study"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -632,7 +845,7 @@ districts_properties |>
 
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(starts_with("study"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -645,7 +858,7 @@ districts_properties |>
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(cir, starts_with("study"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -655,7 +868,23 @@ districts_properties |>
 ```
 
 ```{r}
-districts_properties |> 
+confintr::ci_cor(
+  districts_analysis$cir, 
+  districts_analysis$study_centrality_strength_intra,
+  type = "bootstrap"
+)
+```
+
+```{r}
+confintr::ci_cor(
+  districts_analysis$cir, 
+  districts_analysis$study_centrality_strength_intra
+)
+```
+
+
+```{r}
+districts_analysis |> 
   select(c(cir, starts_with("study"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -663,10 +892,11 @@ districts_properties |>
   focus(cir) |> 
   arrange(desc(cir))
 ```
+
 ```{r}
-plot_scatter = function(data, x, y, x_label = "x", y_label = "x") {
+plot_scatter <- function(data, x, y, x_label = "x", y_label = "x") {
   ggplot(data, aes({{x}}, {{y}})) +
-    geom_point() +
+    geom_point(size = 6) +
     geom_smooth(method = "loess", formula = "y ~ x") +
     labs(x = x_label, y = y_label) +
     theme_classic()
@@ -675,75 +905,71 @@ plot_scatter = function(data, x, y, x_label = "x", y_label = "x") {
 
 ```{r}
 plot_scatter(
-  districts_properties, study_centrality_strength_intra, cir,
+  districts_analysis, study_structural_knn_inout, cir,
   "Intra-district flow rate", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+plot_scatter(
+  districts_analysis, study_centrality_strength_intra, cir,
+  "Intra-district flow rate", "Incidence rate"
+)
+```
+
+```{r}
+districts_analysis |> 
   arrange(desc(study_centrality_strength_intra))
 ```
 
 ```{r}
-districts_cir_centroids = districts_cir |> 
-  left_join(peru, by = "ubigeo") |> 
-  st_as_sf() |> 
-  st_centroid() 
-
-coordinate_layout = districts_cir_centroids |> 
-  st_coordinates() |> 
-  as_tibble() |> 
-  rename_with(tolower)
-```
-
-```{r}
-ggraph(graphs$graph[[1]], coordinate_layout) +
-  geom_sf(data = districts_cir_polygons, fill = "transparent") +
-  geom_edge_arc(alpha = 0.05, strength = 0.1) +
-  geom_node_point(
-    aes(size = study_centrality_strength_intra, color = cir)
-  ) +
-  theme_void()
-```
-
-```{r}
-study_centrality_strength_intra_biscale = bi_class(
-  districts_cir_polygons, x = study_centrality_strength_intra, y = cir, 
+study_centrality_strength_intra_biscale <- bi_class(
+  districts_analysis_polygons, x = study_centrality_strength_intra, y = cir, 
   style = "jenks", dim = 3
 )
 ```
 
 ```{r}
-study_centrality_strength_intra_biscale_map = 
-  study_centrality_strength_intra_biscale |> 
+study_centrality_strength_intra_biscale_map <- study_centrality_strength_intra_biscale |> 
   ggplot() +
   geom_sf(
     aes(fill = bi_class), color = "white", 
     size = 0.05, show.legend = FALSE
   ) +
-  geom_sf(data = subregions_polygons, color = "black", fill = "transparent") +
+  geom_sf(data = subregions_polygons, color = "black", fill = "transparent", linewidth = 0.8) +
   bi_scale_fill(pal = "GrPink", dim = 3, flip_axes = TRUE) +
-  theme_void()
+  theme_void() +
+  annotate("text", x = -77.13, y = -12.145, label = "Lima\nCentro", size = 5) +
+  annotate("text", x = -76.9, y = -12.36, label = "Lima\nSur", size = 5) +
+  annotate("text", x = -76.95, y = -11.67, label = "Lima\nNorte", size = 5) +
+  annotate("text", x = -76.8, y = -11.85, label = "Lima\nEste", size = 5) +
+  labs(title = "Figura 3. Mapa de incidencia de TB vs. porcentaje de estudiantes que\nse movilizan dentro del mismo distrito en el que habitan")
 
 study_centrality_strength_intra_biscale_map
 ```
 
 ```{r}
-biscale_legend = bi_legend(
-    pal = "GrPink", dim = 3, xlab = "Higher centrality ", ylab = "Higher incidence ", 
-    size = 8, pad_width = 0.1, flip_axes = TRUE
+biscale_legend <- bi_legend(
+    pal = "GrPink", dim = 3, xlab = "Mayor centralidad ", ylab = "Mayor incidencia ", 
+    size = 10, pad_width = 0.1, flip_axes = TRUE
   ) +
   theme(
     panel.background = element_rect(fill = "transparent"),
-    plot.background = element_rect(fill = "transparent", color = NA)
+    plot.background = element_rect(fill = "transparent", color = NA),
+    axis.ticks.x = element_line(color = "transparent"),
+    axis.ticks.y = element_line(color = "transparent"),
+    axis.line.x = element_line(color = "transparent"),
+    axis.line.y = element_line(color = "transparent"),
+    text = element_text(size = 16)
   )
 ```
 
 ```{r}
-study_centrality_strength_intra_biscale_plot = cowplot::ggdraw() +
+study_centrality_strength_intra_biscale_plot <- cowplot::ggdraw() +
   cowplot::draw_plot(study_centrality_strength_intra_biscale_map, 0, 0, 1, 1) +
-  cowplot::draw_plot(biscale_legend, 0.15, 0.1, 0.25, 0.25)
+  cowplot::draw_plot(biscale_legend, 0.2, 0.08, 0.22, 0.22) +
+  # cowplot::draw_label("Title", y = 0.9, x = 0.3) +
+  theme(text = element_text(size = 20)) 
 
 study_centrality_strength_intra_biscale_plot
 ```
@@ -752,47 +978,54 @@ study_centrality_strength_intra_biscale_plot
 #| eval: false
 ggsave(
   "figures/study_centrality_strength_intra_biscale_plot.png", 
-  study_centrality_strength_intra_biscale_plot, height = 7, 
-  width = 7
+  study_centrality_strength_intra_biscale_plot, height = 11, 
+  width = 11
 )
 ```
 
 
 ```{r}
 plot_scatter(
-  districts_properties, study_centrality_degree_out, cir,
+  districts_analysis, study_centrality_degree_out, cir,
   "Out-degree centrality", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(study_centrality_degree_out))
 ```
 
 ```{r}
 plot_scatter(
-  districts_properties, study_centrality_degree_in, cir,
+  districts_analysis, study_centrality_degree_in, cir,
   "In-degree centrality", "Incidence rate"
 )
 ```
 
 ```{r}
-plot_scatter(
-  districts_properties, study_centrality_strength_out, cir,
+cir_out_strength_scatterplot <- plot_scatter(
+  districts_analysis, study_centrality_strength_out, cir,
   "Out-strength centrality", "Incidence rate"
-)
+) +
+  annotate(
+    "text", x = 170000, y = 195, label = "r = -0.58, 95% CI [-0.75, -0.34]",
+    size = 9
+  ) +
+  theme(text = element_text(size = 25))
+
+cir_out_strength_scatterplot
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(study_centrality_strength_out))
 ```
 
 #### Work
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(cir, starts_with("work"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -802,7 +1035,7 @@ districts_properties |>
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(cir, starts_with("work"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -813,56 +1046,56 @@ districts_properties |>
 
 ```{r}
 plot_scatter(
-  districts_properties, work_centrality_closeness_out, cir,
+  districts_analysis, work_centrality_closeness_out, cir,
   "Out-closeness centrality", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(work_centrality_closeness_out))
 ```
 
 ```{r}
 plot_scatter(
-  districts_properties, work_structural_knn_inout, cir,
+  districts_analysis, work_structural_knn_inout, cir,
   "Average nearest in-neighbor out-strength", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(work_structural_knn_inout))
 ```
 
 ```{r}
 plot_scatter(
-  districts_properties, work_centrality_strength_in, cir,
+  districts_analysis, work_centrality_strength_in, cir,
   "In-strenght centrality ", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(work_centrality_strength_in))
 ```
 
 ```{r}
 plot_scatter(
-  districts_properties, work_structural_knn_outin, cir,
+  districts_analysis, work_structural_knn_outin, cir,
   "Average nearest out-neighbor in-strength ", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(work_structural_knn_outin))
 ```
 
 #### Total
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(cir, starts_with("total"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -872,7 +1105,7 @@ districts_properties |>
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   select(c(cir, starts_with("total"))) |> 
   select(-c(contains("eccentricity"))) |> 
   select(-c(ends_with("all"))) |> 
@@ -883,33 +1116,99 @@ districts_properties |>
 
 ```{r}
 plot_scatter(
-  districts_properties, total_centrality_strength_intra, cir,
+  districts_analysis, total_centrality_strength_intra, cir,
   "Intra-district flow rate", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(total_centrality_strength_intra))
 ```
 
 ```{r}
 plot_scatter(
-  districts_properties, total_centrality_strength_out, cir,
+  districts_analysis, total_centrality_strength_out, cir,
   "Out-strength centrality", "Incidence rate"
 )
 ```
 
 ```{r}
-districts_properties |> 
+districts_analysis |> 
   arrange(desc(total_centrality_strength_out))
 ```
 
+```{r}
+total_centrality_strength_out_biscale <- bi_class(
+  districts_analysis_polygons, x = total_centrality_strength_out, y = cir, 
+  style = "jenks", dim = 3
+)
+```
+
+```{r}
+total_centrality_strength_out_biscale_map <- total_centrality_strength_out_biscale |> 
+  ggplot() +
+  geom_sf(
+    aes(fill = bi_class), color = "white", 
+    size = 0.05, show.legend = FALSE
+  ) +
+  geom_sf(data = subregions_polygons, color = "black", fill = "transparent", linewidth = 0.8) +
+  bi_scale_fill(pal = "GrPink", dim = 3, flip_axes = TRUE) +
+  theme_void() +
+  annotate("text", x = -77.13, y = -12.145, label = "Lima\nCentro", size = 5) +
+  annotate("text", x = -76.9, y = -12.36, label = "Lima\nSur", size = 5) +
+  annotate("text", x = -76.95, y = -11.67, label = "Lima\nNorte", size = 5) +
+  annotate("text", x = -76.8, y = -11.85, label = "Lima\nEste", size = 5)
+
+total_centrality_strength_out_biscale_map
+```
+
+```{r}
+biscale_legend <- bi_legend(
+    pal = "GrPink", dim = 3, xlab = "Mayor centralidad ", ylab = "Mayor incidencia ", 
+    size = 10, pad_width = 0.1, flip_axes = TRUE
+  ) +
+  theme(
+    panel.background = element_rect(fill = "transparent"),
+    plot.background = element_rect(fill = "transparent", color = NA),
+    axis.ticks.x = element_line(color = "transparent"),
+    axis.ticks.y = element_line(color = "transparent"),
+    axis.line.x = element_line(color = "transparent"),
+    axis.line.y = element_line(color = "transparent"),
+    text = element_text(size = 16)
+  )
+```
+
+```{r}
+total_centrality_strength_out_biscale_plot <- cowplot::ggdraw() +
+  cowplot::draw_plot(total_centrality_strength_out_biscale_map, 0, 0, 1, 1) +
+  cowplot::draw_plot(biscale_legend, 0.13, 0.1, 0.25, 0.25) +
+  theme(text = element_text(size = 20)) 
+
+total_centrality_strength_out_biscale_plot
+```
+
+```{r}
+#| eval: false
+ggsave(
+  "figures/total_centrality_strength_out_biscale_plot.png", 
+  total_centrality_strength_out_biscale_plot, height = 13, 
+  width = 13
+)
+```
 
 ## Model building
 
 ```{r}
-glm_base_formulas_list = list(
+districts_model <- districts_analysis |> 
+  mutate(
+    across(c(co, no2, pm25, o3), \(x) as.vector(scale(x)))
+  )
+```
+
+
+```{r}
+glm_base_formulas_list <- list(
   "poverty-co" = 
     new_cases ~ offset(log(population_permanent)) + monetary_poverty + co,
   "poverty-no2" = 
@@ -930,7 +1229,7 @@ glm_base_formulas_list = list(
 ```
 
 ```{r}
-glm_base_formulas = tibble(
+glm_base_formulas <- tibble(
   base = names(glm_base_formulas_list), 
   formula = glm_base_formulas_list
 )
@@ -941,24 +1240,24 @@ glm_base_formulas = tibble(
 #### Study
 
 ```{r}
-study_mobility = 
-  colnames(districts_cir)[grepl("study_centrality", colnames(districts_cir))]
+study_mobility <- 
+  colnames(districts_model)[grepl("study_centrality", colnames(districts_model))]
 ```
 
 ```{r}
-glm_study_mobility_design = expand.grid(
+glm_study_mobility_design <- expand.grid(
     base = names(glm_base_formulas_list), mobility = study_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-glm_study_mobility_formulas_raw = glm_study_mobility_design |> 
+glm_study_mobility_formulas_raw <- glm_study_mobility_design |> 
   inner_join(glm_base_formulas, by = c("base"))
 ```
 
 ```{r}
-glm_study_mobility_formulas = glm_study_mobility_formulas_raw |> 
+glm_study_mobility_formulas <- glm_study_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -968,17 +1267,17 @@ glm_study_mobility_formulas = glm_study_mobility_formulas_raw |>
 ```
 
 ```{r}
-glm_study_formulas = bind_rows(glm_base_formulas, glm_study_mobility_formulas)
+glm_study_formulas <- bind_rows(glm_base_formulas, glm_study_mobility_formulas)
 ```
 
 ```{r}
-glm_study_fits = glm_study_formulas |> 
+glm_study_fits <- glm_study_formulas |> 
   mutate(
     glm_po_fit = purrr::map(
-      formula, ~glm(.x, data = districts_cir, family = poisson)
+      formula, ~glm(.x, data = districts_model, family = poisson)
     ),
     glm_nb_fit = purrr::map(
-      formula, ~MASS::glm.nb(.x, data = districts_cir)
+      formula, ~MASS::glm.nb(.x, data = districts_model)
     ),
   ) |> 
   tidyr::pivot_longer(
@@ -990,7 +1289,7 @@ glm_study_fits = glm_study_formulas |>
 ```
 
 ```{r}
-glm_study_performance = glm_study_fits |> 
+glm_study_performance <- glm_study_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -999,7 +1298,7 @@ glm_study_performance
 ```
 
 ```{r}
-glm_study_performance_base = glm_study_performance |> 
+glm_study_performance_base <- glm_study_performance |> 
   filter(is.na(mobility)) |> 
   select(base, family, aic_base = aic) |> 
   arrange(aic_base)
@@ -1028,27 +1327,32 @@ check_overdispersion(glm_study_performance$fit[[1]])
 check_collinearity(glm_study_performance$fit[[1]])
 ```
 
+```{r}
+check_model(glm_study_performance$fit[[1]])
+```
+
+
 #### Work
 
 ```{r}
-work_mobility = 
-  colnames(districts_cir)[grepl("work_centrality", colnames(districts_cir))]
+work_mobility <- 
+  colnames(districts_model)[grepl("work_centrality", colnames(districts_model))]
 ```
 
 ```{r}
-glm_work_mobility_design = expand.grid(
+glm_work_mobility_design <- expand.grid(
     base = names(glm_base_formulas_list), mobility = work_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-glm_work_mobility_formulas_raw = glm_work_mobility_design |> 
+glm_work_mobility_formulas_raw <- glm_work_mobility_design |> 
   inner_join(glm_base_formulas, by = c("base"))
 ```
 
 ```{r}
-glm_work_mobility_formulas = glm_work_mobility_formulas_raw |> 
+glm_work_mobility_formulas <- glm_work_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -1058,17 +1362,17 @@ glm_work_mobility_formulas = glm_work_mobility_formulas_raw |>
 ```
 
 ```{r}
-glm_work_formulas = bind_rows(glm_base_formulas, glm_work_mobility_formulas)
+glm_work_formulas <- bind_rows(glm_base_formulas, glm_work_mobility_formulas)
 ```
 
 ```{r}
-glm_work_fits = glm_work_formulas |> 
+glm_work_fits <- glm_work_formulas |> 
   mutate(
     glm_po_fit = purrr::map(
-      formula, ~glm(.x, data = districts_cir, family = poisson)
+      formula, ~glm(.x, data = districts_model, family = poisson)
     ),
     glm_nb_fit = purrr::map(
-      formula, ~MASS::glm.nb(.x, data = districts_cir)
+      formula, ~MASS::glm.nb(.x, data = districts_model)
     ),
   ) |> 
   tidyr::pivot_longer(
@@ -1080,7 +1384,7 @@ glm_work_fits = glm_work_formulas |>
 ```
 
 ```{r}
-glm_work_performance = glm_work_fits |> 
+glm_work_performance <- glm_work_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -1089,7 +1393,7 @@ glm_work_performance
 ```
 
 ```{r}
-glm_work_performance_base = glm_work_performance |> 
+glm_work_performance_base <- glm_work_performance |> 
   filter(is.na(mobility)) |> 
   select(base, family, aic_base = aic) |> 
   arrange(aic_base)
@@ -1113,24 +1417,24 @@ summary(glm_work_performance$fit[[1]])
 #### Total
 
 ```{r}
-total_mobility = 
-  colnames(districts_cir)[grepl("total_centrality", colnames(districts_cir))]
+total_mobility <- 
+  colnames(districts_model)[grepl("total_centrality", colnames(districts_model))]
 ```
 
 ```{r}
-glm_total_mobility_design = expand.grid(
+glm_total_mobility_design <- expand.grid(
     base = names(glm_base_formulas_list), mobility = total_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-glm_total_mobility_formulas_raw = glm_total_mobility_design |> 
+glm_total_mobility_formulas_raw <- glm_total_mobility_design |> 
   inner_join(glm_base_formulas, by = c("base"))
 ```
 
 ```{r}
-glm_total_mobility_formulas = glm_total_mobility_formulas_raw |> 
+glm_total_mobility_formulas <- glm_total_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -1140,17 +1444,17 @@ glm_total_mobility_formulas = glm_total_mobility_formulas_raw |>
 ```
 
 ```{r}
-glm_total_formulas = bind_rows(glm_base_formulas, glm_total_mobility_formulas)
+glm_total_formulas <- bind_rows(glm_base_formulas, glm_total_mobility_formulas)
 ```
 
 ```{r}
 glm_total_fits = glm_total_formulas |> 
   mutate(
     glm_po_fit = purrr::map(
-      formula, ~glm(.x, data = districts_cir, family = poisson)
+      formula, ~glm(.x, data = districts_model, family = poisson)
     ),
     glm_nb_fit = purrr::map(
-      formula, ~MASS::glm.nb(.x, data = districts_cir)
+      formula, ~MASS::glm.nb(.x, data = districts_model)
     ),
   ) |> 
   tidyr::pivot_longer(
@@ -1162,7 +1466,7 @@ glm_total_fits = glm_total_formulas |>
 ```
 
 ```{r}
-glm_total_performance = glm_total_fits |> 
+glm_total_performance <- glm_total_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -1171,7 +1475,7 @@ glm_total_performance
 ```
 
 ```{r}
-glm_total_performance_base = glm_total_performance |> 
+glm_total_performance_base <- glm_total_performance |> 
   filter(is.na(mobility)) |> 
   select(base, family, aic_base = aic) |> 
   arrange(aic_base)
@@ -1195,7 +1499,7 @@ summary(glm_total_performance$fit[[1]])
 ## GAM
 
 ```{r}
-gam_base_formulas_list = list(
+gam_base_formulas_list <- list(
   "poverty-co" = 
     new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(co),
   "poverty-no2" = 
@@ -1219,7 +1523,7 @@ gam_base_formulas_list = list(
 ```
 
 ```{r}
-gam_base_formulas = tibble(
+gam_base_formulas <- tibble(
   base = names(gam_base_formulas_list), 
   formula = gam_base_formulas_list
 )
@@ -1228,19 +1532,19 @@ gam_base_formulas = tibble(
 ### Study
 
 ```{r}
-gam_study_mobility_design = expand.grid(
+gam_study_mobility_design <- expand.grid(
     base = names(gam_base_formulas_list), mobility = study_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-gam_study_mobility_formulas_raw = gam_study_mobility_design |> 
+gam_study_mobility_formulas_raw <- gam_study_mobility_design |> 
   inner_join(gam_base_formulas, by = c("base"))
 ```
 
 ```{r}
-gam_study_mobility_formulas = gam_study_mobility_formulas_raw |> 
+gam_study_mobility_formulas <- gam_study_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -1250,20 +1554,20 @@ gam_study_mobility_formulas = gam_study_mobility_formulas_raw |>
 ```
 
 ```{r}
-gam_study_formulas = bind_rows(gam_base_formulas, gam_study_mobility_formulas)
+gam_study_formulas <- bind_rows(gam_base_formulas, gam_study_mobility_formulas)
 ```
 
 ```{r}
-gam_study_fits = gam_study_formulas |> 
+gam_study_fits <- gam_study_formulas |> 
   mutate(
     gam_po_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = poisson, method = "REML"
+        .x, data = districts_model, family = poisson, method = "REML"
       )
     ),
     gam_nb_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = mgcv::nb(), method = "REML"
+        .x, data = districts_model, family = mgcv::nb(), method = "REML"
       )
     ),
   ) |> 
@@ -1276,7 +1580,7 @@ gam_study_fits = gam_study_formulas |>
 ```
 
 ```{r}
-gam_study_performance = gam_study_fits |> 
+gam_study_performance <- gam_study_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -1285,7 +1589,7 @@ gam_study_performance
 ```
 
 ```{r}
-gam_study_performance_base = gam_study_performance |> 
+gam_study_performance_base <- gam_study_performance |> 
   filter(is.na(mobility)) |> 
   select(base, family, aic_base = aic) |> 
   arrange(aic_base)
@@ -1302,22 +1606,109 @@ gam_study_performance |>
   filter(family == "po", base == "ubn-pm25")
 ```
 
+```{r}
+summary(gam_study_performance$fit[[1]])
+```
+
+```{r}
+gam_study_performance_fit_est <- gam_study_performance$fit[[1]] |> 
+  gratia::smooth_estimates() |> 
+  gratia::add_confint()
+```
+
+```{r}
+study_poverty_plot <- gam_study_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(ubn)") |> 
+  ggplot() +
+  geom_line(aes(ubn, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = ubn), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(ubn), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Porcentaje de hogares con al menos una necesidad básica insatisfecha") +
+  theme_classic()
+study_poverty_plot
+```
+
+```{r}
+study_pollulant_plot <- gam_study_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(no2)") |> 
+  ggplot() +
+  geom_line(aes(no2, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = no2), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(no2), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Concentración de NO2 (estandarizado)") +
+  theme_classic()
+study_pollulant_plot
+```
+
+```{r}
+study_centrality_plot <- gam_study_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(study_centrality_strength_intra)") |> 
+  ggplot() +
+  geom_line(aes(study_centrality_strength_intra, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = study_centrality_strength_intra), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(study_centrality_strength_intra), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  scale_x_continuous(labels = scales::comma) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Porcentaje de estudiantes que se movilizan dentro del distrito donde habitan") +
+  theme_classic()
+study_centrality_plot
+```
+
+```{r}
+study_smooth_plots <- study_poverty_plot + study_pollulant_plot + 
+  study_centrality_plot + plot_layout(ncol = 2) +
+  plot_annotation(title = "Figura 4. Efectos parciales del mejor modelo para la incidencia de TB con una medida de centralidad del grafo de movilización de estudiantes como predictor")
+study_smooth_plots
+```
+
+```{r}
+ggsave(
+  "figures/study_smooth_plots.png", study_smooth_plots,
+  width = 13, height = 9, bg = "transparent"
+)
+```
+
+```{r}
+gratia::draw(gam_study_performance$fit[[1]])
+```
+
+
 ### Work
 
 ```{r}
-gam_work_mobility_design = expand.grid(
+gam_work_mobility_design <- expand.grid(
     base = names(gam_base_formulas_list), mobility = work_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-gam_work_mobility_formulas_raw = gam_work_mobility_design |> 
+gam_work_mobility_formulas_raw <- gam_work_mobility_design |> 
   inner_join(gam_base_formulas, by = c("base"))
 ```
 
 ```{r}
-gam_work_mobility_formulas = gam_work_mobility_formulas_raw |> 
+gam_work_mobility_formulas <- gam_work_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -1327,20 +1718,20 @@ gam_work_mobility_formulas = gam_work_mobility_formulas_raw |>
 ```
 
 ```{r}
-gam_work_formulas = bind_rows(gam_base_formulas, gam_work_mobility_formulas)
+gam_work_formulas <- bind_rows(gam_base_formulas, gam_work_mobility_formulas)
 ```
 
 ```{r}
-gam_work_fits = gam_work_formulas |> 
+gam_work_fits <- gam_work_formulas |> 
   mutate(
     gam_po_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = poisson, method = "REML"
+        .x, data = districts_model, family = poisson, method = "REML"
       )
     ),
     gam_nb_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = mgcv::nb(), method = "REML"
+        .x, data = districts_model, family = mgcv::nb(), method = "REML"
       )
     ),
   ) |> 
@@ -1353,7 +1744,7 @@ gam_work_fits = gam_work_formulas |>
 ```
 
 ```{r}
-gam_work_performance = gam_work_fits |> 
+gam_work_performance <- gam_work_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -1364,19 +1755,19 @@ gam_work_performance
 ### Total
 
 ```{r}
-gam_total_mobility_design = expand.grid(
+gam_total_mobility_design <- expand.grid(
     base = names(gam_base_formulas_list), mobility = total_mobility
   ) |> 
   arrange(base)
 ```
 
 ```{r}
-gam_total_mobility_formulas_raw = gam_total_mobility_design |> 
+gam_total_mobility_formulas_raw <- gam_total_mobility_design |> 
   inner_join(gam_base_formulas, by = c("base"))
 ```
 
 ```{r}
-gam_total_mobility_formulas = gam_total_mobility_formulas_raw |> 
+gam_total_mobility_formulas <- gam_total_mobility_formulas_raw |> 
   mutate(
     formula = purrr::map2(
       formula, as.list(mobility),
@@ -1386,20 +1777,20 @@ gam_total_mobility_formulas = gam_total_mobility_formulas_raw |>
 ```
 
 ```{r}
-gam_total_formulas = bind_rows(gam_base_formulas, gam_total_mobility_formulas)
+gam_total_formulas <- bind_rows(gam_base_formulas, gam_total_mobility_formulas)
 ```
 
 ```{r}
-gam_total_fits = gam_total_formulas |> 
+gam_total_fits <- gam_total_formulas |> 
   mutate(
     gam_po_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = poisson, method = "REML"
+        .x, data = districts_model, family = poisson, method = "REML"
       )
     ),
     gam_nb_fit = purrr::map(
       formula, ~mgcv::gam(
-        .x, data = districts_cir, family = mgcv::nb(), method = "REML"
+        .x, data = districts_model, family = mgcv::nb(), method = "REML"
       )
     ),
   ) |> 
@@ -1412,7 +1803,7 @@ gam_total_fits = gam_total_formulas |>
 ```
 
 ```{r}
-gam_total_performance = gam_total_fits |> 
+gam_total_performance <- gam_total_fits |> 
   mutate(aic = purrr::map(fit, ~AIC(.x))) |> 
   tidyr::unnest(aic) |> 
   arrange(aic)
@@ -1420,8 +1811,111 @@ gam_total_performance = gam_total_fits |>
 gam_total_performance
 ```
 
+```{r}
+gam_total_performance_base <- gam_total_performance |> 
+  filter(is.na(mobility)) |> 
+  select(base, family, aic_base = aic) |> 
+  arrange(aic_base)
+
+gam_total_performance_base
+```
+
+```{r}
+gam_total_performance |> 
+  drop_na(mobility) |> 
+  left_join(gam_study_performance_base, by = c("base", "family")) |> 
+  mutate(aic_change = 100 * (aic - aic_base) / aic_base) |> 
+  arrange(aic_change) |> 
+  filter(family == "po", base == "ubn-pm25")
+```
+
+```{r}
+summary(gam_total_performance$fit[[1]])
+```
+
+```{r}
+gam_total_performance_fit_est <- gam_total_performance$fit[[1]] |> 
+  gratia::smooth_estimates() |> 
+  gratia::add_confint()
+```
+
+```{r}
+ubn_plot <- gam_total_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(ubn)") |> 
+  ggplot() +
+  geom_line(aes(ubn, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = ubn), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(ubn), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Hogares con al menos una necesidad básica insatisfecha (%)") +
+  theme_classic()
+ubn_plot
+```
+
+```{r}
+co_plot <- gam_total_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(co)") |> 
+  ggplot() +
+  geom_line(aes(co, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = co), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(co), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Concentración de CO (estandarizado)") +
+  theme_classic()
+co_plot
+```
 
 
+```{r}
+strength_plot <- gam_total_performance_fit_est |> 
+  mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
+  filter(smooth == "s(total_centrality_strength_intra)") |> 
+  ggplot() +
+  geom_line(aes(total_centrality_strength_intra, est), linewidth = 1) +
+  geom_ribbon(
+    aes(ymin = lower_ci, ymax = upper_ci, x = total_centrality_strength_intra), alpha = 0.4,
+    fill = "steelblue3"
+  ) +
+  geom_rug(
+    aes(total_centrality_strength_intra), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+  ) +
+  scale_x_continuous(labels = scales::comma) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  labs(y = "Efecto parcial", x = "Personas que se movilizan dentro del mismo distrito por cada 100,000 habitantes") +
+  theme_classic()
+strength_plot
+```
+
+```{r}
+smooth_plots <- ubn_plot + co_plot + strength_plot + plot_layout(ncol = 2)
+smooth_plots
+```
+
+```{r}
+ggsave(
+  "figures/smooth_plots.png", smooth_plots,
+  width = 15, height = 12, bg = "transparent"
+)
+```
+
+
+
+```{r}
+gratia::draw(gam_total_performance$fit[[1]]) &
+  theme_classic()
+```
 
 
 

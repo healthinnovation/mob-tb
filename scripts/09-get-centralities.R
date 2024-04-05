@@ -1,17 +1,18 @@
-library(dplyr)
 library(tidygraph)
 library(igraph)
 
-nodes = readr::read_csv("data/processed/nodes.csv", col_types = "ccccd")
-edges = readr::read_csv("data/processed/edges.csv", col_types = "cccd")
+nodes <- readr::read_csv(
+  "data/processed/nodes.csv", col_types = "ciccccciddddddddd"
+)
+edges <- readr::read_csv("data/processed/edges.csv", col_types = "cccd")
 
-edges = edges |>
-  group_by(type) |>
-  filter(origin != destination) |>
-  ungroup()
+edges <- edges |>
+  dplyr::group_by(type) |>
+  dplyr::filter(origin != destination) |>
+  dplyr::ungroup()
 
-get_node_properties = function(graph, weight) {
-  graph_centralities = graph |>
+get_node_properties <- function(graph, weight) {
+  graph_centralities <- graph |>
     activate(nodes) |>
     mutate(
       centrality_degree_in = degree(
@@ -86,28 +87,27 @@ get_node_properties = function(graph, weight) {
     tibble::as_tibble()
 }
 
-graphs = edges |>
+graphs <- edges |>
   tidyr::nest(edges = -type) |>
-  mutate(
+  dplyr::mutate(
     graph = purrr::map(
-      edges, ~ tbl_graph(
-        nodes = nodes, edges = .x, directed = TRUE, node_key = "ubigeo"
+      edges, \(x) tbl_graph(
+        nodes = nodes, edges = x, directed = TRUE, node_key = "ubigeo"
       )
     ),
-    node_properties = purrr::map(graph, ~ get_node_properties(.x, weight = weight))
+    node_properties = purrr::map(graph, \(x) get_node_properties(x, weight = weight))
   )
 
-districts_long = graphs |>
+districts_long <- graphs |>
   tidyr::unnest(node_properties) |>
-  select(-c(edges, graph))
+  dplyr::select(-c(edges, graph))
 
-districts = districts_long |>
+districts <- districts_long |>
   tidyr::pivot_wider(
-    id_cols = district:work_centrality_strength_intra, names_from = type,
+    id_cols = ubigeo:work_centrality_strength_intra, names_from = type,
     names_glue = "{type}_{.value}",
     values_from = centrality_degree_in:structural_constraint_weighted
   )
 
 readr::write_csv(districts, "data/processed/districts.csv", na = "")
-
 

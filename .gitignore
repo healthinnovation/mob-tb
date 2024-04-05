@@ -40,8 +40,8 @@ vignettes/*.pdf
 .Rproj.user
 
 # data
-data/raw/*.sav
-data/interim/*.csv
+data/raw/
+data/interim/
 
 # outputs
 *.html
@@ -51,3 +51,4 @@ data/interim/*.csv
 *.svg
 *.png
 *.jpg
+
