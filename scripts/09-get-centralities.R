@@ -2,7 +2,7 @@ library(tidygraph)
 library(igraph)
 
 nodes <- readr::read_csv(
-  "data/processed/nodes.csv", col_types = "ciccccciddddddddd"
+  "data/processed/nodes.csv", col_types = "cciiii"
 )
 edges <- readr::read_csv("data/processed/edges.csv", col_types = "cccd")
 

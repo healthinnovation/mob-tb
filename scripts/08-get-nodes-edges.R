@@ -9,7 +9,7 @@ od_work <- readr::read_csv(
 )
 
 districts <- readr::read_csv(
-  "data/interim/districts.csv", col_types = "cicccccidddddd"
+  "data/interim/districts.csv", col_types = "ccciicidddddd"
 )
 
 od <- dplyr::bind_rows(
@@ -32,6 +32,7 @@ flow_intra_wide <- flow_intra |>
   )
 
 nodes <- districts |>
+  dplyr::distinct(ubigeo, district, population_permanent) |>
   dplyr::inner_join(flow_intra_wide, by = "ubigeo")
 
 edges <- dplyr::rename(od_lima, weight = cases)

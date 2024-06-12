@@ -24,51 +24,13 @@ library(performance)
 ```{r}
 districts <- readr::read_csv(
   "data/processed/districts.csv",
-  col_types = sprintf("cc%s", paste0(rep("d", 70), collapse = ""))
+  col_types = sprintf("ciiccccci%s", paste0(rep("d", 75), collapse = ""))
 )
 ```
 
 ```{r}
-districts_year <- readr::read_csv(
-  "data/interim/districts.csv", col_types = "ccciicidddddd"
-)
+glimpse(districts)
 ```
-
-```{r}
-lima <- districts_year |> 
-  inner_join(districts, by = c("ubigeo", "population_permanent", "district")) |> 
-  select(-c(total_centrality_betweenness_weighted:work_structural_constraint_weighted)) |> 
-  mutate(across(contains("strength"), log, .names = "{.col}_log")) |>
-  mutate(across(contains("degree"), log, .names = "{.col}_log")) |> 
-  mutate(across(contains("closeness"), log, .names = "{.col}_log")) |> 
-  mutate(cir = 100000 * cases / population_permanent) |> 
-  mutate(cir_log = log(cir + 1))
-```
-
-```{r}
-lima |> 
-  filter(year == 2018) |> 
-  select(c(cir_log, contains("degree"), contains("strength"), contains("_log"),  contains("closeness"))) |> 
-  correlate(method = "pearson", quiet = TRUE) |> 
-  focus(cir_log) |> 
-  arrange(desc(cir_log))
-```
-
-```{r}
-lima |> 
-  filter(year == 2018, total_centrality_closeness_out_log < 5.7)
-```
-
-
-```{r}
-lima |> 
-  filter(year == 2018, cir_log > 1, total_centrality_closeness_out_log > 5.7) |> 
-  ggplot(aes(total_centrality_closeness_out_log, cir)) + 
-  geom_point() +
-  geom_smooth()
-```
-
-
 
 ## Cumulative incidence rate (CIR)
 
@@ -97,7 +59,7 @@ districts_analysis <- districts |>
     )
   ) |> 
   mutate(
-    cir = 100000 * new_cases / population_permanent,
+    cir = 100000 * new_cases_tbpfp / population_permanent,
     subregion = factor(
       subregion, 
       levels = c("North Lima", "East Lima", "Center Lima", "South Lima"),
@@ -109,7 +71,7 @@ districts_analysis <- districts |>
 ## Analysis by subregions 
 
 ```{r}
-cir_subregions_table = districts_analysis |>
+cir_subregions_table <- districts_analysis |>
   gtsummary::tbl_summary(
     by = subregion,
     missing = "no",
@@ -126,8 +88,8 @@ cir_subregions_table
 ```{r}
 districts_analysis |> 
   group_by(subregion) |> 
-  summarise(new_cases = sum(new_cases), .groups = "drop") |> 
-  mutate(prop_cases = 100 * new_cases / sum(new_cases))
+  summarise(new_cases_tbpfp = sum(new_cases_tbpfp), .groups = "drop") |> 
+  mutate(prop_cases = 100 * new_cases_tbpfp / sum(new_cases_tbpfp))
 ```
 
 ```{r}
@@ -135,13 +97,13 @@ subregion_cir <- districts_analysis |>
   group_by(subregion) |> 
   summarise(
     population = sum(population_permanent),
-    new_cases = sum(new_cases),
+    new_cases_tbpfp = sum(new_cases_tbpfp),
     cir_mean = mean(cir),
     .groups = "drop"
   ) |>
   mutate(
-    prop_cases = 100 * new_cases / sum(new_cases),
-    cir = 100000 * new_cases / population
+    prop_cases = 100 * new_cases_tbpfp / sum(new_cases_tbpfp),
+    cir = 100000 * new_cases_tbpfp / population
   )
 subregion_cir
 ```
@@ -307,11 +269,11 @@ total_flow_lima
 
 ```{r}
 #| eval: false
-ggsave(
-  "figures/total_flow_lima.png", 
-  total_flow_lima, height = 13, 
-  width = 13.5
-)
+# ggsave(
+#   "figures/total_flow_lima.png", 
+#   total_flow_lima, height = 13, 
+#   width = 13.5
+# )
 ```
 
 ```{r}
@@ -339,11 +301,11 @@ study_flow_lima
 
 ```{r}
 #| eval: false
-ggsave(
-  "figures/study_flow_lima.png", 
-  study_flow_lima, height = 11, 
-  width = 11.5
-)
+# ggsave(
+#   "figures/study_flow_lima.png", 
+#   study_flow_lima, height = 11, 
+#   width = 11.5
+# )
 ```
 
 ```{r}
@@ -371,11 +333,11 @@ work_flow_lima
 
 ```{r}
 #| eval: false
-ggsave(
-  "figures/work_flow_lima.png", 
-  work_flow_lima, height = 13, 
-  width = 13.5
-)
+# ggsave(
+#   "figures/work_flow_lima.png", 
+#   work_flow_lima, height = 13, 
+#   width = 13.5
+# )
 ```
 
 ### Commuting flows by subregions
@@ -510,10 +472,10 @@ subregion_cir_study_chord
 ```
 
 ```{r}
-ggsave(
-  "figures/subregion_cir_study_chord.png", subregion_cir_study_chord,
-  width = 7.3, height = 10, bg = "transparent"
-)
+# ggsave(
+#   "figures/subregion_cir_study_chord.png", subregion_cir_study_chord,
+#   width = 7.3, height = 10, bg = "transparent"
+# )
 ```
 
 #### Work 
@@ -585,10 +547,10 @@ subregion_cir_work_chord
 ```
 
 ```{r}
-ggsave(
-  "figures/subregion_cir_work_chord.png", subregion_cir_work_chord,
-  width = 11.3, height = 15, bg = "transparent"
-)
+# ggsave(
+#   "figures/subregion_cir_work_chord.png", subregion_cir_work_chord,
+#   width = 11.3, height = 15, bg = "transparent"
+# )
 ```
 
 #### Study or work or both
@@ -693,16 +655,16 @@ subregion_cir_total_chord
 ```
 
 ```{r}
-ggsave(
-  "figures/subregion_cir_total_chord.png", subregion_cir_total_chord,
-  width = 11.3, height = 15, bg = "transparent"
-)
+# ggsave(
+#   "figures/subregion_cir_total_chord.png", subregion_cir_total_chord,
+#   width = 11.3, height = 15, bg = "transparent"
+# )
 ```
 
 ## Analysis by districts
 
 ```{r}
-sum(districts_analysis$new_cases)
+sum(districts_analysis$new_cases_tbpfp)
 ```
 
 ```{r}
@@ -715,7 +677,7 @@ En promedio, hubieron 90 nuevos casos de TB por 100000 habitantes (SD = 48.23) a
 ```{r}
 districts_analysis |> 
   arrange(cir) |> 
-  select(district, ubigeo, name_code, cir, subregion)
+  select(district, ubigeo, district_short, cir, subregion)
 ```
 
 El distrito con mayor incidencia acumulada fue La Victoria en la subregion de Lima Centro, con 212 nuevos casos por 100000 habitantes. El distrito con menos incidencia fue Santa Maria del Mar en la subregión de Lima Sur, con 0 nuevos casos reportados. 
@@ -1021,11 +983,11 @@ study_centrality_strength_intra_biscale_plot
 
 ```{r}
 #| eval: false
-ggsave(
-  "figures/study_centrality_strength_intra_biscale_plot.png", 
-  study_centrality_strength_intra_biscale_plot, height = 11, 
-  width = 11
-)
+# ggsave(
+#   "figures/study_centrality_strength_intra_biscale_plot.png", 
+#   study_centrality_strength_intra_biscale_plot, height = 11, 
+#   width = 11
+# )
 ```
 
 
@@ -1173,25 +1135,25 @@ districts_analysis |>
 
 ```{r}
 plot_scatter(
-  districts_analysis, total_centrality_strength_out, cir,
+  districts_analysis, total_centrality_closeness_out, cir,
   "Out-strength centrality", "Incidence rate"
 )
 ```
 
 ```{r}
 districts_analysis |> 
-  arrange(desc(total_centrality_strength_out))
+  arrange(desc(total_centrality_closeness_out))
 ```
 
 ```{r}
-total_centrality_strength_out_biscale <- bi_class(
-  districts_analysis_polygons, x = total_centrality_strength_out, y = cir, 
+total_centrality_closeness_out_biscale <- bi_class(
+  districts_analysis_polygons, x = total_centrality_closeness_out, y = cir, 
   style = "jenks", dim = 3
 )
 ```
 
 ```{r}
-total_centrality_strength_out_biscale_map <- total_centrality_strength_out_biscale |> 
+total_centrality_closeness_out_biscale_map <- total_centrality_closeness_out_biscale |> 
   ggplot() +
   geom_sf(
     aes(fill = bi_class), color = "white", 
@@ -1205,7 +1167,7 @@ total_centrality_strength_out_biscale_map <- total_centrality_strength_out_bisca
   annotate("text", x = -76.95, y = -11.67, label = "Lima\nNorte", size = 5) +
   annotate("text", x = -76.8, y = -11.85, label = "Lima\nEste", size = 5)
 
-total_centrality_strength_out_biscale_map
+total_centrality_closeness_out_biscale_map
 ```
 
 ```{r}
@@ -1225,21 +1187,21 @@ biscale_legend <- bi_legend(
 ```
 
 ```{r}
-total_centrality_strength_out_biscale_plot <- cowplot::ggdraw() +
-  cowplot::draw_plot(total_centrality_strength_out_biscale_map, 0, 0, 1, 1) +
+total_centrality_closeness_out_biscale_plot <- cowplot::ggdraw() +
+  cowplot::draw_plot(total_centrality_closeness_out_biscale_map, 0, 0, 1, 1) +
   cowplot::draw_plot(biscale_legend, 0.13, 0.1, 0.25, 0.25) +
   theme(text = element_text(size = 20)) 
 
-total_centrality_strength_out_biscale_plot
+total_centrality_closeness_out_biscale_plot
 ```
 
 ```{r}
 #| eval: false
-ggsave(
-  "figures/total_centrality_strength_out_biscale_plot.png", 
-  total_centrality_strength_out_biscale_plot, height = 13, 
-  width = 13
-)
+# ggsave(
+#   "figures/total_centrality_strength_out_biscale_plot.png", 
+#   total_centrality_strength_out_biscale_plot, height = 13, 
+#   width = 13
+# )
 ```
 
 ## Model building
@@ -1255,21 +1217,21 @@ districts_model <- districts_analysis |>
 ```{r}
 glm_base_formulas_list <- list(
   "poverty-co" = 
-    new_cases ~ offset(log(population_permanent)) + monetary_poverty + co,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + monetary_poverty + co,
   "poverty-no2" = 
-    new_cases ~ offset(log(population_permanent)) + monetary_poverty + no2,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + monetary_poverty + no2,
   "poverty-pm25" = 
-    new_cases ~ offset(log(population_permanent)) + monetary_poverty + pm25,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + monetary_poverty + pm25,
   "poverty-o3" = 
-    new_cases ~ offset(log(population_permanent)) + monetary_poverty + o3,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + monetary_poverty + o3,
   "nonmonetary-co" = 
-    new_cases ~ offset(log(population_permanent)) + nonmonetary_poverty + co,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + nonmonetary_poverty + co,
   "nonmonetary-no2" = 
-    new_cases ~ offset(log(population_permanent)) + nonmonetary_poverty + no2,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + nonmonetary_poverty + no2,
   "nonmonetary-pm25" = 
-    new_cases ~ offset(log(population_permanent)) + nonmonetary_poverty + pm25,
+    new_cases_tbpfp ~ offset(log(population_permanent)) + nonmonetary_poverty + pm25,
   "nonmonetary-o3" = 
-    new_cases ~ offset(log(population_permanent)) + nonmonetary_poverty + o3
+    new_cases_tbpfp ~ offset(log(population_permanent)) + nonmonetary_poverty + o3
 )
 ```
 
@@ -1550,24 +1512,24 @@ summary(glm_total_performance$fit[[1]])
 ```{r}
 gam_base_formulas_list <- list(
   "poverty-co" = 
-    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + s(co),
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(monetary_poverty) + s(co),
   "poverty-no2" = 
-    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + 
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(monetary_poverty) + 
     s(no2),
   "poverty-pm25" = 
-    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + 
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(monetary_poverty) + 
     s(pm25),
   "poverty-o3" = 
-    new_cases ~ offset(log(population_permanent)) + s(monetary_poverty) + 
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(monetary_poverty) + 
     s(o3),
   "nonmonetary-co" = 
-    new_cases ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(co),
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(co),
   "nonmonetary-no2" = 
-    new_cases ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(no2),
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(no2),
   "nonmonetary-pm25" = 
-    new_cases ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(pm25),
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(pm25),
   "nonmonetary-o3" = 
-    new_cases ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(o3)
+    new_cases_tbpfp ~ offset(log(population_permanent)) + s(nonmonetary_poverty) + s(o3)
 )
 ```
 
@@ -1677,15 +1639,15 @@ gam_study_performance_fit_est <- gam_study_performance$fit[[1]] |>
 ```{r}
 study_poverty_plot <- gam_study_performance_fit_est |> 
   mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
-  filter(smooth == "s(ubn)") |> 
+  filter(smooth == "s(nonmonetary_poverty)") |> 
   ggplot() +
-  geom_line(aes(ubn, est), linewidth = 1) +
+  geom_line(aes(nonmonetary_poverty, est), linewidth = 1) +
   geom_ribbon(
-    aes(ymin = lower_ci, ymax = upper_ci, x = ubn), alpha = 0.4,
+    aes(ymin = lower_ci, ymax = upper_ci, x = nonmonetary_poverty), alpha = 0.4,
     fill = "steelblue3"
   ) +
   geom_rug(
-    aes(ubn), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+    aes(nonmonetary_poverty), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
   ) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   labs(y = "Efecto parcial", x = "Porcentaje de hogares con al menos una necesidad básica insatisfecha") +
@@ -1696,18 +1658,18 @@ study_poverty_plot
 ```{r}
 study_pollulant_plot <- gam_study_performance_fit_est |> 
   mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
-  filter(smooth == "s(no2)") |> 
+  filter(smooth == "s(co)") |> 
   ggplot() +
-  geom_line(aes(no2, est), linewidth = 1) +
+  geom_line(aes(co, est), linewidth = 1) +
   geom_ribbon(
-    aes(ymin = lower_ci, ymax = upper_ci, x = no2), alpha = 0.4,
+    aes(ymin = lower_ci, ymax = upper_ci, x = co), alpha = 0.4,
     fill = "steelblue3"
   ) +
   geom_rug(
-    aes(no2), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+    aes(co), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
   ) +
   geom_hline(yintercept = 1, linetype = "dashed") +
-  labs(y = "Efecto parcial", x = "Concentración de NO2 (estandarizado)") +
+  labs(y = "Efecto parcial", x = "Concentración de co (estandarizado)") +
   theme_classic()
 study_pollulant_plot
 ```
@@ -1715,15 +1677,15 @@ study_pollulant_plot
 ```{r}
 study_centrality_plot <- gam_study_performance_fit_est |> 
   mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
-  filter(smooth == "s(study_centrality_strength_intra)") |> 
+  filter(smooth == "s(study_centrality_strength_all)") |> 
   ggplot() +
-  geom_line(aes(study_centrality_strength_intra, est), linewidth = 1) +
+  geom_line(aes(study_centrality_strength_all, est), linewidth = 1) +
   geom_ribbon(
-    aes(ymin = lower_ci, ymax = upper_ci, x = study_centrality_strength_intra), alpha = 0.4,
+    aes(ymin = lower_ci, ymax = upper_ci, x = study_centrality_strength_all), alpha = 0.4,
     fill = "steelblue3"
   ) +
   geom_rug(
-    aes(study_centrality_strength_intra), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+    aes(study_centrality_strength_all), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
   ) +
   scale_x_continuous(labels = scales::comma) +
   geom_hline(yintercept = 1, linetype = "dashed") +
@@ -1740,10 +1702,10 @@ study_smooth_plots
 ```
 
 ```{r}
-ggsave(
-  "figures/study_smooth_plots.png", study_smooth_plots,
-  width = 13, height = 9, bg = "transparent"
-)
+# ggsave(
+#   "figures/study_smooth_plots.png", study_smooth_plots,
+#   width = 13, height = 9, bg = "transparent"
+# )
 ```
 
 ```{r}
@@ -1917,15 +1879,15 @@ gam_total_performance_fit_est <- gam_total_performance$fit[[1]] |>
 ```{r}
 ubn_plot <- gam_total_performance_fit_est |> 
   mutate(across(c(est, lower_ci, upper_ci), exp)) |> 
-  filter(smooth == "s(ubn)") |> 
+  filter(smooth == "s(nonmonetary_poverty)") |> 
   ggplot() +
-  geom_line(aes(ubn, est), linewidth = 1) +
+  geom_line(aes(nonmonetary_poverty, est), linewidth = 1) +
   geom_ribbon(
-    aes(ymin = lower_ci, ymax = upper_ci, x = ubn), alpha = 0.4,
+    aes(ymin = lower_ci, ymax = upper_ci, x = nonmonetary_poverty), alpha = 0.4,
     fill = "steelblue3"
   ) +
   geom_rug(
-    aes(ubn), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
+    aes(nonmonetary_poverty), data = districts_model, sides = "b", length = grid::unit(0.02, "npc")
   ) +
   geom_hline(yintercept = 1, linetype = "dashed") +
   labs(y = "Efecto parcial", x = "Hogares con al menos una necesidad básica insatisfecha (%)") +
@@ -1979,13 +1941,11 @@ smooth_plots
 ```
 
 ```{r}
-ggsave(
-  "figures/smooth_plots.png", smooth_plots,
-  width = 15, height = 12, bg = "transparent"
-)
+# ggsave(
+#   "figures/smooth_plots.png", smooth_plots,
+#   width = 15, height = 12, bg = "transparent"
+# )
 ```
-
-
 
 ```{r}
 gratia::draw(gam_total_performance$fit[[1]]) &

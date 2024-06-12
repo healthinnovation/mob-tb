@@ -1,7 +1,6 @@
 tb_raw <- readr::read_csv(
-  "data/raw/tb-lima.csv",
-  col_types = "cdddddddddccccddddddddc",
-  col_select = c(YEAR, ubigeo_eess, casos_nuevos, NAME_3, NAME_S)
+  "data/raw/tb.csv",
+  col_types = "cciiiiiiiiiiii"
 )
 
 north_lima <- c(
@@ -10,7 +9,7 @@ north_lima <- c(
 
 center_lima <- c(
   "150104", "150105", "150113", "150115", "150101", "150116", "150120", "150122",
-  "150128", "150130", "150131", "150136", "150140", "150141"
+  "150128", "150130", "150131", "150136", "150140", "150141", "150121"
 )
 
 south_lima <- c(
@@ -24,20 +23,20 @@ east_lima <- c(
 )
 
 tb <- tb_raw |>
-  dplyr::filter(YEAR == 2017) |>
-  dplyr::rename(
-    ubigeo = ubigeo_eess, district = NAME_3, district_short = NAME_S,
-    new_cases = casos_nuevos
+  tidyr::pivot_longer(
+    cols = -c(ubigeo, district), names_to = c("diagnostic", "year"),
+    names_sep = "_", values_to = "cases"
   ) |>
-  dplyr::select(-YEAR) |>
-  dplyr::arrange(ubigeo) |>
   dplyr::mutate(
-    subregion = dplyr::case_when(
-      ubigeo %in% north_lima ~ "North Lima",
-      ubigeo %in% center_lima ~ "Center Lima",
-      ubigeo %in% south_lima ~ "South Lima",
-      ubigeo %in% east_lima ~ "East Lima"
+    diagnostic = toupper(diagnostic),
+    region = dplyr::case_when(
+      ubigeo %in% north_lima ~ "NORTHERN LIMA",
+      ubigeo %in% center_lima ~ "CENTRAL LIMA",
+      ubigeo %in% south_lima ~ "SOUTHERN LIMA",
+      ubigeo %in% east_lima ~ "EASTERN LIMA",
+      TRUE ~ "CALLAO"
     )
-  )
+  ) |>
+  dplyr::arrange(year, diagnostic, ubigeo)
 
 readr::write_csv(tb, "data/interim/to-merge/00-tb.csv", na = "")
