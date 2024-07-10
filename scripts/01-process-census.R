@@ -3,17 +3,12 @@ census_raw <- haven::read_sav(
   census_filepath,
   # n_max = 100,
   col_select = c(
-    ubigeo, c5_p4_1, c5_p5, c5_p14, c5_p15, c5_p15b_cod:c5_p15d_cod, c5_p16:c5_p17,
-    c5_p23, c5_p23b_cod:c5_p23d_cod
+    ubigeo:distrito, area, c5_p4_1, c5_p5, c5_p14, c5_p15,
+    c5_p15b_cod:c5_p15d_cod, c5_p16:c5_p17, c5_p23, c5_p23b_cod:c5_p23d_cod
   )
 )
 
-tb_filepath <- "data/interim/to-merge/00-tb.csv"
-tb <- readr::read_csv(tb_filepath, col_types = "ccciic")
-ubigeos <- unique(tb$ubigeo)
-
-census <- dplyr::filter(census_raw, ubigeo %in% ubigeos)
-rm(census_raw)
+census <- dplyr::filter(census_raw, ccdd %in% c("07", "15"), ccpp == "01")
 
 # Origin-destination data for students ------------------------------------
 ## c5_p5 == 1:  Vive permanentemente en este distrito: 1 (Sí)
@@ -23,7 +18,8 @@ rm(census_raw)
 ## c5_p15d_cod == "": País - institución al que asiste: No hay data de país
 od_study <- census |>
   dplyr::filter(
-    c5_p5 == 1, c5_p14 == 1, !is.na(c5_p15), c5_p15a_cod != 99, c5_p15d_cod == ""
+    c5_p5 == 1, c5_p14 == 1, !is.na(c5_p15), c5_p15b_cod %in% c("07", "15", ""),
+    c5_p15c_cod %in% c("01", ""), c5_p15a_cod != 99, c5_p15d_cod == ""
   ) |>
   dplyr::select(origin = ubigeo, c5_p15b_cod:c5_p15a_cod) |>
   tidyr::drop_na() |>
@@ -31,14 +27,9 @@ od_study <- census |>
     destination = paste(c5_p15b_cod, c5_p15c_cod, c5_p15a_cod, sep = "")
   ) |>
   dplyr::mutate(destination = ifelse(destination == "", origin, destination)) |>
-  dplyr::filter(destination %in% ubigeos) |>
   dplyr::group_by(origin, destination) |>
-  dplyr::summarise(cases = dplyr::n(), .groups = "drop") |>
-  dplyr::arrange(origin, destination, cases)
-
-od_study_filepath <- "data/interim/origin-destination-study.csv"
-readr::write_csv(od_study, od_study_filepath)
-rm(od_study)
+  dplyr::summarise(flow = dplyr::n(), .groups = "drop") |>
+  dplyr::arrange(origin, destination, flow)
 
 # Origin-destination data for workers -------------------------------------
 ## c5_p5 == 1:  Vive permanentemente en este distrito: 1 (Sí)
@@ -49,10 +40,9 @@ rm(od_study)
 ## c5_p23d_cod == "": País donde está ubicado su centro trabajo: No hay data de país
 od_work <- census |>
   dplyr::filter(
-    c5_p5 == 1, c5_p4_1 >= 14, c5_p16 == 1, !is.na(c5_p23), c5_p23a_cod != 99,
-    c5_p23d_cod == ""
-    # !(c5_p17 %in% c(6, 7)),
-    #
+    c5_p5 == 1, c5_p4_1 >= 14, c5_p16 == 1, !is.na(c5_p23),
+    c5_p23b_cod %in% c("07", "15", ""), c5_p23c_cod %in% c("01", ""),
+    c5_p23a_cod != 99, c5_p23d_cod == ""
   ) |>
   dplyr::select(origin = ubigeo, c5_p23b_cod:c5_p23a_cod) |>
   tidyr::drop_na() |>
@@ -60,14 +50,10 @@ od_work <- census |>
     destination = paste(c5_p23b_cod, c5_p23c_cod, c5_p23a_cod, sep = "")
   ) |>
   dplyr::mutate(destination = ifelse(destination == "", origin, destination)) |>
-  dplyr::filter(destination %in% ubigeos) |>
+  # dplyr::filter(destination %in% ubigeos) |>
   dplyr::group_by(origin, destination) |>
-  dplyr::summarise(cases = dplyr::n(), .groups = "drop") |>
-  dplyr::arrange(origin, destination, cases)
-
-od_work_filepath <- "data/interim/origin-destination-work.csv"
-readr::write_csv(od_work, od_work_filepath)
-rm(od_work)
+  dplyr::summarise(flow = dplyr::n(), .groups = "drop") |>
+  dplyr::arrange(origin, destination, flow)
 
 # Origin-destination data for students and workers ------------------------
 student_worker <- census |>
@@ -75,18 +61,20 @@ student_worker <- census |>
   dplyr::select(ubigeo, c5_p4_1, c5_p14:c5_p17, c5_p23:c5_p23d_cod) |>
   dplyr::mutate(
     student = ifelse(
-      c5_p14 == 1 & !is.na(c5_p15) & c5_p15a_cod != 99 & c5_p15d_cod == "", 1, 0
+      c5_p14 == 1 & !is.na(c5_p15) & c5_p15b_cod %in% c("07", "15", "") &
+      c5_p15c_cod %in% c("01", "") & c5_p15a_cod != 99 & c5_p15d_cod == "", 1, 0
     ),
     worker = ifelse(
-      c5_p4_1 >= 14 & c5_p16 == 1 & !is.na(c5_p23) & c5_p23a_cod != 99 &
-        c5_p23d_cod == "",
+      c5_p4_1 >= 14 & c5_p16 == 1 & !is.na(c5_p23) &
+        c5_p23b_cod %in% c("07", "15", "") & c5_p23c_cod %in% c("01", "") &
+        c5_p23a_cod != 99 & c5_p23d_cod == "",
       1, 0
     )
   ) |>
   dplyr::filter(student == 1 | worker == 1) |>
   dplyr::mutate(id = dplyr::row_number())
 
-od_raw <- student_worker |>
+od_total_raw <- student_worker |>
   dplyr::select(
     origin = ubigeo, c5_p15b_cod:c5_p15a_cod, c5_p23b_cod:c5_p23a_cod, student,
     worker, id
@@ -107,29 +95,63 @@ od_raw <- student_worker |>
     values_to = "destination"
   ) |>
   tidyr::drop_na(destination) |>
-  dplyr::mutate(destination = ifelse(destination == "", origin, destination)) |>
-  dplyr::filter(destination %in% ubigeos)
+  dplyr::mutate(destination = ifelse(destination == "", origin, destination))
 
-od <- od_raw |>
+od_total <- od_total_raw |>
   dplyr::group_by(origin, destination) |>
-  dplyr::summarise(cases = dplyr::n_distinct(id), .groups = "drop")
+  dplyr::summarise(flow = dplyr::n_distinct(id), .groups = "drop")
 
-od_filepath <- "data/interim/origin-destination-total.csv"
-readr::write_csv(od, od_filepath)
-rm(od_raw)
-rm(od)
+rm(od_total_raw)
 rm(student_worker)
 
+edges <- dplyr::bind_rows(
+  list(total = od_total, study = od_study, work = od_work), .id = "type"
+)
+readr::write_csv(edges, "data/processed/network/edges.csv")
+rm(od_total)
+rm(od_study)
+rm(od_work)
+
+
 # Permanent population  ---------------------------------------------------
-population <- census |>
-  dplyr::group_by(ubigeo) |>
+north_lima <- c(
+  "150102", "150106", "150110", "150112", "150117", "150125", "150135", "150139"
+)
+
+center_lima <- c(
+  "150104", "150105", "150113", "150115", "150101", "150116", "150120", "150122",
+  "150128", "150130", "150131", "150136", "150140", "150141", "150121"
+)
+
+south_lima <- c(
+  "150108", "150119", "150123", "150124", "150126", "150127", "150129", "150133",
+  "150138", "150142", "150143"
+)
+
+east_lima <- c(
+  "150103", "150107", "150109", "150111", "150114", "150118", "150132", "150134",
+  "150137"
+)
+
+districts <- census |>
+  dplyr::group_by(ubigeo, departamento, provincia, distrito) |>
   dplyr::summarise(
-    # population = dplyr::n(),
-    population_permanent = sum(ifelse(c5_p5 == 1, 1, 0)),
+    pop_2017 = dplyr::n(),
+    pop_permanent_2017 = sum(ifelse(c5_p5 == 1, 1, 0)),
+    # urban = sum(ifelse(area == 1, 1, 0)),
+    # rural = sum(ifelse(area == 2, 1, 0)),
     .groups = "drop"
   ) |>
-  dplyr::arrange(ubigeo)
+  dplyr::arrange(ubigeo) |>
+  dplyr::mutate(
+    region = dplyr::case_when(
+      ubigeo %in% north_lima ~ "NORTHERN LIMA",
+      ubigeo %in% center_lima ~ "CENTRAL LIMA",
+      ubigeo %in% south_lima ~ "SOUTHERN LIMA",
+      ubigeo %in% east_lima ~ "EASTERN LIMA",
+      TRUE ~ "CALLAO"
+    )
+  )
 
-population_filepath <- "data/interim/to-merge/01-population.csv"
-readr::write_csv(population, population_filepath)
-
+districts_filepath <- "data/interim/fixed/00-districts.csv"
+readr::write_csv(districts, districts_filepath)

@@ -1,4 +1,4 @@
-type,origin,destination,weight
+type,origin,destination,flow
 total,070101,070101,191113
 total,070101,070102,4516
 total,070101,070103,1427
