@@ -1,0 +1,161 @@
+---
+title: "Analysis"
+author: "Diego Villa"
+format: html
+editor: source
+---
+
+```{r}
+library(dplyr)
+library(corrr)
+library(ggplot2)
+library(MASS)
+```
+
+```{r}
+# library(tidyr)
+# library(ggplot2)
+# library(gtsummary)
+# library(tidygraph)
+# library(ggraph)
+# library(igraph)
+# library(corrr)
+# library(biscale)
+# library(performance)
+```
+
+```{r}
+centralities <- readr::read_csv(
+  "data/processed/centralities.csv", col_types = "cccciiccddddddddddddd"
+)
+```
+
+```{r}
+centralities_class <- centralities |> 
+  group_by(type) |> 
+  mutate(
+    across(
+      starts_with("centrality"), \(x) scales::rescale(x), 
+      .names = "{.col}_norm"
+    ),
+    across(
+      ends_with("norm"), 
+      \(x) cut(
+        x, breaks = cartography::getBreaks(x, method = "jenks", nclass = 3), 
+        labels = c("Low", "Medium", "High"), include.lowest = TRUE
+      ),
+      .names = "{.col}_class"
+    )
+  ) |> 
+  dplyr::ungroup()
+```
+
+```{r}
+tb <- readr::read_csv("data/processed/tb.csv", col_types = "ciii")
+```
+
+```{r}
+junction <- tidyr::expand_grid(
+  ubigeo = unique(tb$ubigeo), year = unique(tb$year), 
+  type = unique(centralities_class$type)
+)
+```
+
+```{r}
+tb_centralities <- tb |> 
+  inner_join(junction, by = c("ubigeo", "year")) |> 
+  inner_join(centralities_class, by = c("ubigeo", "type")) |> 
+  mutate(
+    tb_incidence = 1000 * tb / population,
+    tbfp_incidence = 1000 * tbfp / population,
+    
+  )
+```
+
+```{r}
+centrality_class <- names(tb_centralities)[grepl("_class", names(tb_centralities))]
+```
+
+```{r}
+tb_centralities_nest <- tb_centralities |> 
+  tidyr::nest(data = -c(year, type))
+```
+
+```{r}
+model_grid <- tidyr::expand_grid(tb_centralities_nest, centrality_class)
+```
+
+```{r}
+model_results <- model_grid |> 
+  mutate(
+    formula = purrr::map(
+      centrality_class, 
+      \(x) as.formula(
+        sprintf("tb ~ offset(log(population)) + %s", x)
+      )
+    ),
+    model = purrr::map2(
+      formula, data, \(x, y) glm.nb(x, data = y)
+    ),
+    aic = purrr::map(model, \(x) AIC(x))
+  ) |> 
+  tidyr::unnest(aic)
+```
+
+```{r}
+model_results
+```
+
+```{r}
+summary(model_results$model[[1]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_results$model[[1]], exponentiate = TRUE)
+```
+
+
+```{r}
+performance::check_model(fit_0)
+```
+
+
+```{r}
+exp(coef(fit_0))
+```
+
+```{r}
+tb_centralities_nest$data[[1]] |> 
+  arrange(centrality_pagerank_weighted_norm_class)
+```
+
+
+
+
+
+
+
+
+```{r}
+tb <- readr::read_csv("data/processed/tb.csv", col_types = "ciii")
+```
+
+```{r}
+junction <- tidyr::expand_grid(
+  ubigeo = unique(tb$ubigeo), year = unique(tb$year), 
+  type = unique(centralities$type)
+)
+```
+
+```{r}
+tb_central <- tb |> 
+  inner_join(junction, by = c("ubigeo", "year")) |> 
+  inner_join(centralities, by = c("ubigeo", "type")) |> 
+  mutate(
+    tb_incidence = 1000 * tb / population,
+    tbfp_incidence = 1000 * tbfp / population,
+    
+  )
+```
+
+
