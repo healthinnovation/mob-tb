@@ -4,6 +4,7 @@ library(igraph)
 nodes <- readr::read_csv(
   "data/processed/network/nodes.csv", col_types = "cccciic"
 )
+
 edges <- readr::read_csv("data/processed/network/edges.csv", col_types = "cccd")
 
 districts_raw <- sf::read_sf("data/raw/Distrito.gpkg")
@@ -16,8 +17,10 @@ coords <- sf::st_centroid(districts)
 dist_matrix <- sf::st_distance(coords)
 rownames(dist_matrix) <- districts$ubigeo
 colnames(dist_matrix) <- districts$ubigeo
-adj_matrix <- graph.adjacency(dist_matrix, mode = "directed", weighted = TRUE)
-edge_list <- get.edgelist(adj_matrix)
+adj_matrix <- graph_from_adjacency_matrix(
+  dist_matrix, mode = "directed", weighted = TRUE
+)
+edge_list <- as_edgelist(adj_matrix)
 
 edge_dist <- tibble::tibble(
   origin = edge_list[, 1], destination = edge_list[, 2],
@@ -57,7 +60,7 @@ graphs_flow_totals <- edges |>
 
   )
 
-masses <- graphs |>
+masses <- graphs_flow_totals |>
   dplyr::select(type, flow_totals) |>
   tidyr::unnest(flow_totals) |>
   dplyr::select(type, ubigeo, mass)
@@ -90,9 +93,15 @@ get_centralities <- function(graph, weight) {
   graph_properties <- graph |>
     activate(nodes) |>
     mutate(
-      centrality_degree_in = centrality_degree(mode = "in", loops = FALSE),
-      centrality_degree_out = centrality_degree(mode = "out", loops = FALSE),
-      centrality_degree_all = centrality_degree(mode = "all", loops = FALSE),
+      centrality_degree_in = centrality_degree(
+        mode = "in", loops = FALSE, normalized = TRUE
+      ),
+      centrality_degree_out = centrality_degree(
+        mode = "out", loops = FALSE, normalized = TRUE
+      ),
+      centrality_degree_all = centrality_degree(
+        mode = "all", loops = FALSE, normalized = TRUE
+      ) ,
       centrality_strength_in = centrality_degree(
         weights = weight, mode = "in", loops = TRUE
       ),
@@ -146,4 +155,3 @@ centralities <- graphs_centralities |>
   dplyr::relocate(type, .before = region)
 
 readr::write_csv(centralities, "data/processed/centralities.csv", na = "")
-

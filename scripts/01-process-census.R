@@ -105,7 +105,7 @@ rm(od_total_raw)
 rm(student_worker)
 
 edges <- dplyr::bind_rows(
-  list(total = od_total, study = od_study, work = od_work), .id = "type"
+  list(Total = od_total, Study = od_study, Work = od_work), .id = "type"
 )
 readr::write_csv(edges, "data/processed/network/edges.csv")
 rm(od_total)
@@ -145,11 +145,11 @@ districts <- census |>
   dplyr::arrange(ubigeo) |>
   dplyr::mutate(
     region = dplyr::case_when(
-      ubigeo %in% north_lima ~ "NORTHERN LIMA",
-      ubigeo %in% center_lima ~ "CENTRAL LIMA",
-      ubigeo %in% south_lima ~ "SOUTHERN LIMA",
-      ubigeo %in% east_lima ~ "EASTERN LIMA",
-      TRUE ~ "CALLAO"
+      ubigeo %in% north_lima ~ "Northern Lima",
+      ubigeo %in% center_lima ~ "Central Lima",
+      ubigeo %in% south_lima ~ "Southern Lima",
+      ubigeo %in% east_lima ~ "Eastern Lima",
+      TRUE ~ "Callao"
     )
   )
 
