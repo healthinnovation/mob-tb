@@ -1,0 +1,82 @@
+---
+title: "forest_plot"
+author: "Kasandra Ascuña-Durand / Ariana Cardenas"
+format: html
+editor: visual
+---
+
+## Conjunto de datos
+
+```{r}
+forest <- readr::read_csv(
+  "data/raw/forest_plot.csv")
+```
+
+## Librerías
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+
+```
+
+## Exploración
+
+```{r}
+colnames(forest)
+```
+
+## Paso 1: Ajustar el df para el forest plot
+
+```{r}
+
+forest$var <- ifelse(is.na(forest$IRR1), 
+                      forest$var,
+                      paste0("   ", forest$var))
+
+forest$model_type1 <- replace(as.character(forest$model_type1), is.na(forest$model_type1), "")
+forest$pvalue1 <- replace(as.character(forest$pvalue1), is.na(forest$pvalue1), "")
+forest$model_type2 <- replace(as.character(forest$model_type2), is.na(forest$model_type2), "")
+forest$pvalue2 <- replace(as.character(forest$pvalue2), is.na(forest$pvalue2), "")
+
+forest$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
+forest$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
+
+# Create a confidence interval column to display
+
+forest$`RR (95% CI)1` <- ifelse(is.na(forest$IRR1), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     forest$IRR1, forest$lower1, forest$upper1)) 
+
+forest$`RR (95% CI)2` <- ifelse(is.na(forest$IRR2), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     forest$IRR2, forest$lower2, forest$upper2)) 
+
+forest <- forest %>%
+  relocate(`Adjusted model`, .after = `upper1`) %>%
+  relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
+  relocate(`pvalue2`, .after = `RR (95% CI)2`)
+
+head(forest)
+
+```
+
+## Graficar el forest plot
+
+```{r fig.align="center", echo = FALSE,fig.height = 12, fig.width = 14}
+study <- forestploter::forest(forest[,c(1, 2, 6:9, 13:15)],
+            est = list(forest$IRR1,
+                       forest$IRR2),
+            lower = list(forest$lower1,
+                         forest$lower2), 
+            upper = list(forest$upper1,
+                         forest$upper2),
+            ci_column = c(3, 7),
+            ref_line = c(1, 1),
+            xlim = list(c(-1, 5), c(-1, 5))
+#            ticks_at = list(c(0.1, 0.5, 1, 2.5), c(-1, 0, 2)),
+#            xlab = c("OR", "Beta"),
+           )
+
+plot(study)
+```
