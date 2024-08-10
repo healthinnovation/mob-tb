@@ -9,7 +9,7 @@ editor: visual
 
 ```{r}
 forest <- readr::read_csv(
-  "data/raw/forest_plot.csv")
+  "data/processed/forest_study.csv")
 ```
 
 ## Librerías
