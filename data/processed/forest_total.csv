@@ -1,0 +1,43 @@
+﻿var,model_type1,IRR1,lower1,upper1,pvalue1,model_type2,IRR2,lower2,upper2,pvalue2
+Strength out,,,,,,,,,,
+Medium,Adjusted,2.52,1.60,3.99,<0.001,Unadjusted,1.42,0.92,2.18,0.12
+Low,Adjusted,4.38,2.43,7.89,<0.001,Unadjusted,1.54,1.01,2.36,0.049
+Hub,,,,,,,,,,
+Medium,Adjusted,2.44,1.57,3.81,<0.001,Unadjusted,1.35,0.88,2.07,0.2
+Low,Adjusted,4.59,2.62,8.04,<0.001,Unadjusted,1.61,1.05,2.45,0.030
+Degree all,,,,,,,,,,
+Medium,Adjusted,0.31,0.14,0.70,0.004,Unadjusted,0.34,0.15,0.76,0.007
+Low,Adjusted,0.47,0.17,1.60,0.2,Unadjusted,0.57,0.22,1.86,0.3
+Degree out,,,,,,,,,,
+Medium,Adjusted,0.58,0.34,1.04,0.059,Unadjusted,0.58,0.34,1.04,0.058
+Low,Adjusted,0.16,0.01,1.06,0.11,Unadjusted,0.15,0.01,1.00,0.10
+Degree in,,,,,,,,,,
+Medium,Adjusted,0.49,0.28,0.92,0.019,Unadjusted,0.53,0.30,0.99,0.037
+Low,Adjusted,0.50,0.18,1.70,0.2,Unadjusted,0.57,0.22,1.87,0.3
+Closeness all,,,,,,,,,,
+Medium,Adjusted,1.10,0.70,1.71,0.70,Unadjusted,1.06,0.69,1.64,0.80
+Low,Adjusted,1.45,0.92,2.26,0.10,Unadjusted,1.40,0.91,2.14,0.13
+Strength in ,,,,,,,,,,
+Medium,Adjusted,1.34,0.85,2.10,0.2,Unadjusted,1.35,0.87,2.08,0.2
+Low,Adjusted,1.50,0.91,2.46,0.094,Unadjusted,1.49,0.97,2.28,0.071
+Strength all,,,,,,,,,,
+Medium,Adjusted,1.13,0.71,1.79,0.6,Unadjusted,1.08,0.70,1.68,0.7
+Low,Adjusted,1.47,0.92,2.34,0.092,Unadjusted,1.40,0.91,2.15,0.12
+Authority,,,,,,,,,,
+Medium,Adjusted,1.65,1.06,2.57,0.022,Unadjusted,1.64,1.07,2.51,0.024
+Low,Adjusted,1.67,1.02,2.72,0.030,Unadjusted,1.62,1.07,2.47,0.025
+Pagerank,,,,,,,,,,
+Medium,Adjusted,1.27,0.81,2.01,0.3,Unadjusted,1.22,0.79,1.89,0.4
+Low,Adjusted,1.54,0.91,2.59,0.087,Unadjusted,1.43,0.93,2.19,0.11
+Pagerank rank,,,,,,,,,,
+Medium,Adjusted,1.27,0.81,2.01,0.3,Unadjusted,1.22,0.79,1.89,0.4
+Low,Adjusted,1.54,0.91,2.59,0.087,Unadjusted,1.43,0.93,2.19,0.11
+Betweenness,,,,,,,,,,
+Medium,Adjusted,1.59,0.34,7.19,0.6,Unadjusted,1.87,0.43,7.93,0.4
+Low,Adjusted,1.79,0.48,6.12,0.4,Unadjusted,1.79,0.48,6.12,0.4
+Closeness in,,,,,,,,,,
+Medium,Adjusted,1.47,0.94,2.29,0.085,Unadjusted,1.46,0.95,2.25,0.088
+Low,Adjusted,1.57,0.96,2.55,0.052,Unadjusted,1.56,1.02,2.38,0.043
+Closeness out,,,,,,,,,,
+Medium,Adjusted,1.89,1.23,2.91,0.003,Unadjusted,1.62,1.06,2.48,0.028
+Low,Adjusted,2.02,1.28,3.18,0.003,Unadjusted,1.58,1.03,2.40,0.036
