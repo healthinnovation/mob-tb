@@ -32,7 +32,10 @@ centralities_rank <- centralities |>
   group_by(type) |> 
   mutate(
     pm25 = as.vector(scale(pm25)),
-    across(starts_with("centrality"), \(x) rank(x), .names = "{.col}_rank"),
+    across(
+      contains(c("strength", "close", "authority", "hub", "pagerank")), 
+      \(x) rank(x), .names = "{.col}_rank"
+    ),
     # across(starts_with("centrality"), \(x) scales::rescale(x), .names = "{.col}_norm")
   ) |> 
   ungroup()
@@ -43,7 +46,7 @@ centralities_level <- centralities_rank |>
   group_by(type) |> 
   mutate(
     across(
-      contains("rank") & contains(c("strength", "close", "authority", "hub", "pagerank")),
+      contains("_rank"),
       \(x) cut(
         x, breaks = quantile(x, probs = seq(0, 1, by = 1/3)),
         labels = c("Low", "Medium", "High"), include.lowest = TRUE
@@ -51,7 +54,7 @@ centralities_level <- centralities_rank |>
       .names = "{.col}_level"
     ),
     across(
-      contains(c("degree", "between")) & !contains("rank"),
+      contains(c("degree", "between")),
       \(x) cut(
         x, breaks = cartography::getBreaks(x, nclass = 3, method = "jenks"),
         labels = c("Low", "Medium", "High"), include.lowest = TRUE
