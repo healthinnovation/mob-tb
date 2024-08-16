@@ -40,6 +40,8 @@ forest$model_type1 <- replace(as.character(forest$model_type1), is.na(forest$mod
 forest$pvalue1 <- replace(as.character(forest$pvalue1), is.na(forest$pvalue1), "")
 forest$model_type2 <- replace(as.character(forest$model_type2), is.na(forest$model_type2), "")
 forest$pvalue2 <- replace(as.character(forest$pvalue2), is.na(forest$pvalue2), "")
+forest$AIC1 <- replace(as.character(forest$AIC1), is.na(forest$AIC1), "")
+forest$AIC2 <- replace(as.character(forest$AIC2), is.na(forest$AIC2), "")
 
 forest$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
 forest$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
@@ -47,27 +49,28 @@ forest$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
 # Create a confidence interval column to display
 
 forest$`RR (95% CI)1` <- ifelse(is.na(forest$IRR1), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest$IRR1, forest$lower1, forest$upper1)) 
 
 forest$`RR (95% CI)2` <- ifelse(is.na(forest$IRR2), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest$IRR2, forest$lower2, forest$upper2)) 
 
 forest <- forest %>%
   relocate(`Adjusted model`, .after = `upper1`) %>%
   relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
-  relocate(`pvalue2`, .after = `RR (95% CI)2`)
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>%
+  relocate(`AIC2`, .after = `pvalue2`)
 
 
 head(forest)
 
 #Adjusting the names - skeleton for the forest plot
 
-g <- forest[,c(1, 6:8, 13:15)]
+g <- forest[,c(1, 6:9, 14:17)]
 colnames(g) <- c("Centralities",
-                      " ","RR (95% CI)","p-value"," ",
-                      "RR (95% CI)","p-value")
+                      " ","RR (95% CI)","p-value", "AIC",
+                 " ", "RR (95% CI)","p-value", "AIC")
 ```
 
 ## Graficar el forest plot
@@ -95,7 +98,7 @@ study <- forestploter::forest(g,
                          forest$lower2), 
             upper = list(forest$upper1,
                          forest$upper2),
-            ci_column = c(2, 5),
+            ci_column = c(2, 6),
             ref_line = c(1, 1),
             xlim = list(c(-1, 5), c(-1, 5)),
             theme = tm
@@ -124,9 +127,9 @@ study <- add_text(study,
 # Add underline at the bottom of the header
 study <- add_border(study, part = "header", row = 1, where = "top")
 study <- add_border(study, part = "header", row = 2, where = "bottom")
-study <- add_border(study, part = "header", row = 1, col = 2:4,
+study <- add_border(study, part = "header", row = 1, col = 2:5,
                 gp = gpar(lwd = 2))
-study <- add_border(study, part = "header", row = 1, col = 5:7,
+study <- add_border(study, part = "header", row = 1, col = 6:9,
                 gp = gpar(lwd = 2))
 
 plot(study)
@@ -134,7 +137,7 @@ plot(study)
 ```
 
 ```{r}
-#ggsave("figures/forest_plot/study.png", study, height = 16, width = 14)
+ggsave("figures/forest_plot/study.png", study, height = 9, width = 12, dpi = 300)
 ```
 
 # Work
@@ -170,11 +173,11 @@ forest_1$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
 # Create a confidence interval column to display
 
 forest_1$`RR (95% CI)1` <- ifelse(is.na(forest_1$IRR1), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest_1$IRR1, forest_1$lower1, forest_1$upper1)) 
 
 forest_1$`RR (95% CI)2` <- ifelse(is.na(forest_1$IRR2), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest_1$IRR2, forest_1$lower2, forest_1$upper2)) 
 
 forest_1 <- forest_1 %>%
@@ -290,11 +293,11 @@ forest_2$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
 # Create a confidence interval column to display
 
 forest_2$`RR (95% CI)1` <- ifelse(is.na(forest_2$IRR1), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest_2$IRR1, forest_2$lower1, forest_2$upper1)) 
 
 forest_2$`RR (95% CI)2` <- ifelse(is.na(forest_2$IRR2), "",
-                             sprintf("%.2f (%.2f to %.2f)",
+                             sprintf("%.2f (%.2f, %.2f)",
                                      forest_2$IRR2, forest_2$lower2, forest_2$upper2)) 
 
 forest_2 <- forest_2 %>%
