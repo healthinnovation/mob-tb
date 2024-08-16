@@ -17,6 +17,8 @@ forest <- readr::read_csv(
 ```{r}
 library(tidyverse)
 library(ggplot2)
+library(grid)
+library(forestploter)
 
 ```
 
@@ -57,26 +59,73 @@ forest <- forest %>%
   relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
   relocate(`pvalue2`, .after = `RR (95% CI)2`)
 
+
 head(forest)
+
+#Adjusting the names - skeleton for the forest plot
+
+g <- forest[,c(1, 6:8, 13:15)]
+colnames(g) <- c("Centralities",
+                      " ","RR (95% CI)","p-value"," ",
+                      "RR (95% CI)","p-value")
 
 ```
 
 ## Graficar el forest plot
 
 ```{r fig.align="center", echo = FALSE,fig.height = 12, fig.width = 14}
-study <- forestploter::forest(forest[,c(1, 2, 6:9, 13:15)],
+
+tm <- forest_theme(core=list(
+  #fg_params=list(hjust = 1, x = 0.9),
+                             bg_params=list(fill = c("lightgray", "white", "white"))),
+                   colhead=list(fg_params=list(hjust=0.5, x=0.5)))
+
+study <- forestploter::forest(g,
             est = list(forest$IRR1,
                        forest$IRR2),
             lower = list(forest$lower1,
                          forest$lower2), 
             upper = list(forest$upper1,
                          forest$upper2),
-            ci_column = c(3, 7),
+            ci_column = c(2, 5),
             ref_line = c(1, 1),
-            xlim = list(c(-1, 5), c(-1, 5))
-#            ticks_at = list(c(0.1, 0.5, 1, 2.5), c(-1, 0, 2)),
-#            xlab = c("OR", "Beta"),
+            xlim = list(c(-1, 5), c(-1, 5)),
+            theme = tm
            )
 
+
+# Bold grouping text
+study <- forestploter::edit_plot(study,
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40),
+               gp = grid::gpar(fontface = "bold"))
+
+# Insert text at the top
+study <- insert_text(study,
+                 text = "Adjusted model",
+                 col = 2:4,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+study <- add_text(study,
+                 text = "Unadjusted model",
+                 col = 5:7,
+                 row = 1,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+# Add underline at the bottom of the header
+study <- add_border(study, part = "header", row = 1, where = "top")
+study <- add_border(study, part = "header", row = 2, where = "bottom")
+# study <- add_border(study, part = "header", row = 1, col = 2:4, 
+#                 gp = gpar(lwd = 2))
+# study <- add_border(study, part = "header", row = 1, col = 5:7, 
+#                 gp = gpar(lwd = 2))
+
 plot(study)
+
+
+```
+
+```{r fig.align="center", echo = FALSE,fig.height = 12, fig.width = 14}
+
 ```
