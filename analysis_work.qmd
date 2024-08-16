@@ -7,129 +7,11 @@ editor: source
 
 ```{r}
 library(dplyr)
-```
-
-```{r}
-# library(tidyr)
-# library(ggplot2)
-# library(gtsummary)
-# library(tidygraph)
-# library(ggraph)
-# library(igraph)
-# library(corrr)
-# library(biscale)
-# library(performance)
-```
-
-```{r}
-centralities <- readr::read_csv(
-  "data/processed/centralities.csv", col_types = "cccciiccddddddddddddddd"
-)
-```
-
-```{r}
-centralities_rank <- centralities |> 
-  group_by(type) |> 
-  mutate(
-    pm25 = as.vector(scale(pm25)),
-    across(starts_with("centrality"), \(x) rank(x), .names = "{.col}_rank"),
-    # across(starts_with("centrality"), \(x) scales::rescale(x), .names = "{.col}_norm")
-  ) |> 
-  ungroup()
-```
-
-```{r}
-centralities_level <- centralities_rank |> 
-  group_by(type) |> 
-  mutate(
-    across(
-      contains("rank") & contains(c("strength", "close", "authority", "hub", "pagerank")),
-      \(x) cut(
-        x, breaks = quantile(x, probs = seq(0, 1, by = 1/3)),
-        labels = c("Low", "Medium", "High"), include.lowest = TRUE
-      ),
-      .names = "{.col}_level"
-    ),
-    across(
-      contains(c("degree", "between")) & !contains("rank"),
-      \(x) cut(
-        x, breaks = cartography::getBreaks(x, nclass = 3, method = "jenks"),
-        labels = c("Low", "Medium", "High"), include.lowest = TRUE
-      ),
-      .names = "{.col}_level"
-    ),
-    # across(
-    #   contains("norm"),
-    #   \(x) cut(
-    #     x, breaks = cartography::getBreaks(x, nclass = 3, method = "jenks"),
-    #     labels = c("Low", "Medium", "High"), include.lowest = TRUE
-    #   ),
-    #   .names = "{.col}_level"
-    # ),
-    across(contains("level"), \(x) forcats::fct_rev(x))
-  ) |> 
-  ungroup()
-```
-
-```{r}
-tb <- readr::read_csv("data/processed/tb.csv", col_types = "ciii")
-```
-
-```{r}
-junction <- tidyr::expand_grid(
-  ubigeo = unique(tb$ubigeo), year = unique(tb$year), 
-  type = unique(centralities_level$type)
-)
-```
-
-```{r}
-tb_centralities <- tb |> 
-  inner_join(junction, by = c("ubigeo", "year")) |> 
-  inner_join(centralities_level, by = c("ubigeo", "type")) |> 
-  mutate(series = factor(ubigeo), time = year)
-```
-
-```{r}
-centrality_level <- names(tb_centralities)[grepl("_level", names(tb_centralities))]
-model_mode <- c("Unadjusted", "Adjusted")
-```
-
-```{r}
-tb_centralities_nest <- tb_centralities |> 
-  filter(year == 2018) |> 
-  tidyr::nest(data = -c(type))
-```
-
-```{r}
-model_grid <- tidyr::expand_grid(tb_centralities_nest, centrality_level, model_mode)
-```
-
-```{r}
 library(MASS)
 ```
 
 ```{r}
-model_results <- model_grid |> 
-  mutate(
-    formula = purrr::map2(
-      centrality_level, model_mode, 
-      \(x, y) if(y == "Unadjusted") {
-        as.formula(sprintf("tb ~ offset(log(population)) + %s", x))
-      } else {
-        as.formula(sprintf("tb ~ offset(log(population)) + pc1 + pm25 + %s", x))
-      }
-    ),
-    model = purrr::map2(
-      formula, data, 
-      \(x, y) glm.nb(x, data = y)
-    ),
-    aic = purrr::map(model, \(x) AIC(x))
-  ) |> 
-  tidyr::unnest(aic)
-```
-
-```{r}
-model_results |> arrange(aic) 
+model_results <- readr::read_rds("model_results.rds")
 ```
 
 ```{r}
@@ -225,43 +107,6 @@ summary(model_1$model[[10]])
 gtsummary::tbl_regression(model_1$model[[10]], exponentiate = TRUE)
 ```
 
-
-```{r}
-summary(model_1$model[[11]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_1$model[[11]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_1$model[[12]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_1$model[[12]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_1$model[[13]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_1$model[[13]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_1$model[[14]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_1$model[[14]], exponentiate = TRUE)
-```
-
-
 Unadjusted:
 
 ```{r}
@@ -355,41 +200,5 @@ summary(model_2$model[[10]])
 
 ```{r}
 gtsummary::tbl_regression(model_2$model[[10]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_2$model[[11]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_2$model[[11]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_2$model[[12]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_2$model[[12]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_2$model[[13]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_2$model[[13]], exponentiate = TRUE)
-```
-
-
-```{r}
-summary(model_2$model[[14]])
-```
-
-```{r}
-gtsummary::tbl_regression(model_2$model[[14]], exponentiate = TRUE)
 ```
 
