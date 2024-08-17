@@ -133,11 +133,10 @@ study <- add_border(study, part = "header", row = 1, col = 6:9,
                 gp = gpar(lwd = 2))
 
 plot(study)
-
 ```
 
 ```{r}
-ggsave("figures/forest_plot/study.png", study, height = 9, width = 12, dpi = 300)
+#ggsave("figures/forest_plot/study.png", study, height = 9, width = 12, dpi = 300)
 ```
 
 # Work
@@ -166,6 +165,8 @@ forest_1$model_type1 <- replace(as.character(forest_1$model_type1), is.na(forest
 forest_1$pvalue1 <- replace(as.character(forest_1$pvalue1), is.na(forest_1$pvalue1), "")
 forest_1$model_type2 <- replace(as.character(forest_1$model_type2), is.na(forest_1$model_type2), "")
 forest_1$pvalue2 <- replace(as.character(forest_1$pvalue2), is.na(forest_1$pvalue2), "")
+forest_1$AIC1 <- replace(as.character(forest_1$AIC1), is.na(forest_1$AIC1), "")
+forest_1$AIC2 <- replace(as.character(forest_1$AIC2), is.na(forest_1$AIC2), "")
 
 forest_1$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
 forest_1$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
@@ -183,14 +184,15 @@ forest_1$`RR (95% CI)2` <- ifelse(is.na(forest_1$IRR2), "",
 forest_1 <- forest_1 %>%
   relocate(`Adjusted model`, .after = `upper1`) %>%
   relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
-  relocate(`pvalue2`, .after = `RR (95% CI)2`)
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>% 
+  relocate(`AIC2`, .after = `pvalue2`)
 
 head(forest_1)
 
-g1 <- forest_1[,c(1, 6:8, 13:15)]
+g1 <- forest_1[,c(1, 6:9, 14:17)]
 colnames(g1) <- c("Centralities",
-                      " ","RR (95% CI)","p-value"," ",
-                      "RR (95% CI)","p-value")
+                      " ","RR (95% CI)","p-value", "AIC"," ",
+                      "RR (95% CI)","p-value", "AIC")
 ```
 
 ## Graficar el forest plot
@@ -219,7 +221,7 @@ work <- forestploter::forest(g1,
                          forest_1$lower2), 
             upper = list(forest_1$upper1,
                          forest_1$upper2),
-            ci_column = c(2, 5),
+            ci_column = c(2, 6),
             ref_line = c(1, 1),
             xlim = list(c(-1, 5), c(-1, 5)),
             theme = tm1
@@ -228,7 +230,7 @@ work <- forestploter::forest(g1,
            )
 # Bold grouping text
 work <- forestploter::edit_plot(work,
-               row = c(1, 4, 7, 10, 12, 15, 18, 21, 24, 27),
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
                gp = grid::gpar(fontface = "bold"))
 
 # Insert text at the top
@@ -248,16 +250,16 @@ work <- add_text(work,
 # Add underline at the bottom of the header
 work <- add_border(work, part = "header", row = 1, where = "top")
 work <- add_border(work, part = "header", row = 2, where = "bottom")
-work <- add_border(work, part = "header", row = 1, col = 2:4,
+work <- add_border(work, part = "header", row = 1, col = 2:5,
                 gp = gpar(lwd = 2))
-work <- add_border(work, part = "header", row = 1, col = 5:7,
+work <- add_border(work, part = "header", row = 1, col = 6:9,
                 gp = gpar(lwd = 2))
 
 plot(work)
 ```
 
 ```{r}
-#ggsave("figures/forest_plot/work.png", work, height = 16, width = 14)
+#ggsave("figures/forest_plot/work.png", work, height = 9, width = 12, dpi = 300)
 ```
 
 # Total
@@ -286,6 +288,8 @@ forest_2$model_type1 <- replace(as.character(forest_2$model_type1), is.na(forest
 forest_2$pvalue1 <- replace(as.character(forest_2$pvalue1), is.na(forest_2$pvalue1), "")
 forest_2$model_type2 <- replace(as.character(forest_2$model_type2), is.na(forest_2$model_type2), "")
 forest_2$pvalue2 <- replace(as.character(forest_2$pvalue2), is.na(forest_2$pvalue2), "")
+forest_2$AIC1 <- replace(as.character(forest_2$AIC1), is.na(forest_2$AIC1), "")
+forest_2$AIC2 <- replace(as.character(forest_2$AIC2), is.na(forest_2$AIC2), "")
 
 forest_2$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
 forest_2$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
@@ -303,14 +307,15 @@ forest_2$`RR (95% CI)2` <- ifelse(is.na(forest_2$IRR2), "",
 forest_2 <- forest_2 %>%
   relocate(`Adjusted model`, .after = `upper1`) %>%
   relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
-  relocate(`pvalue2`, .after = `RR (95% CI)2`)
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>% 
+  relocate(`AIC2`, .after = `pvalue2`)
 
 head(forest_2)
 
-g2 <- forest_2[,c(1, 6:8, 13:15)]
+g2 <- forest_2[,c(1, 6:9, 14:17)]
 colnames(g2) <- c("Centralities",
-                      " ","RR (95% CI)","p-value"," ",
-                      "RR (95% CI)","p-value")
+                      " ","RR (95% CI)","p-value", "AIC"," ",
+                      "RR (95% CI)","p-value", "AIC")
 
 ```
 
@@ -339,7 +344,7 @@ total <- forestploter::forest(g2,
                          forest_2$lower2), 
             upper = list(forest_2$upper1,
                          forest_2$upper2),
-            ci_column = c(2, 5),
+            ci_column = c(2, 6),
             ref_line = c(1, 1),
             xlim = list(c(-1, 5), c(-1, 5)),
             theme = tm2
@@ -349,7 +354,7 @@ total <- forestploter::forest(g2,
 
 # Bold grouping text
 total <- forestploter::edit_plot(total,
-               row = c(1, 4, 7, 10, 12, 15, 18, 21, 24, 27),
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
                gp = grid::gpar(fontface = "bold"))
 
 # Insert text at the top
@@ -369,16 +374,16 @@ total <- add_text(total,
 # Add underline at the bottom of the header
 total <- add_border(total, part = "header", row = 1, where = "top")
 total <- add_border(total, part = "header", row = 2, where = "bottom")
-total <- add_border(total, part = "header", row = 1, col = 2:4, 
+total <- add_border(total, part = "header", row = 1, col = 2:5, 
                  gp = gpar(lwd = 2))
-total <- add_border(total, part = "header", row = 1, col = 5:7, 
+total <- add_border(total, part = "header", row = 1, col = 6:9, 
              gp = gpar(lwd = 2))
 
 plot(total)
 ```
 
 ```{r}
-#ggsave("figures/forest_plot/total.png", total, height = 16, width = 14)
+#ggsave("figures/forest_plot/total.png", total, height = 9, width = 12, dpi = 300)
 ```
 
 ```{r}
@@ -388,5 +393,8 @@ library(cowplot)
 ```{r fig.align="center", echo = FALSE,fig.height = 9, fig.width = 30}
 combined_fplot <- plot_grid(study, work, total, ncol = 3)
 combined_fplot
-#ggsave("figures/forest_plot/combined_forest.png", combined_fplot, height = 40, width = 30)
+```
+
+```{r}
+#ggsave("figures/forest_plot/combined_forest.png", combined_fplot, height = 10, width = 35, dpi = 300)
 ```
