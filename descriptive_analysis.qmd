@@ -2,7 +2,7 @@
 title: "Descriptive Analysis"
 author: "Diego Villa Almeyda"
 format: html
-editor: visual
+editor: source
 ---
 
 ```{r}
@@ -188,4 +188,3 @@ plt  <- graphs |>
       legend.box = "vertical"
     )
 ```
-
