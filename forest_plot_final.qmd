@@ -1,0 +1,400 @@
+---
+title: "forest_plot"
+author: "Kasandra Ascuña-Durand / Ariana Cardenas"
+format: html
+editor: visual
+---
+
+# STUDY
+
+## Conjunto de datos
+
+```{r}
+forest <- readr::read_csv(
+  "data/processed/forest_study.csv")
+```
+
+## Librerías
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(forestploter)
+library(grid)
+```
+
+## Exploración
+
+```{r}
+colnames(forest)
+```
+
+## Paso 1: Ajustar el df para el forest plot
+
+```{r}
+forest$var <- ifelse(is.na(forest$IRR1), 
+                      forest$var,
+                      paste0("   ", forest$var))
+
+forest$model_type1 <- replace(as.character(forest$model_type1), is.na(forest$model_type1), "")
+forest$pvalue1 <- replace(as.character(forest$pvalue1), is.na(forest$pvalue1), "")
+forest$model_type2 <- replace(as.character(forest$model_type2), is.na(forest$model_type2), "")
+forest$pvalue2 <- replace(as.character(forest$pvalue2), is.na(forest$pvalue2), "")
+forest$AIC1 <- replace(as.character(forest$AIC1), is.na(forest$AIC1), "")
+forest$AIC2 <- replace(as.character(forest$AIC2), is.na(forest$AIC2), "")
+
+forest$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
+forest$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
+
+# Create a confidence interval column to display
+
+forest$`RR (95% CI)1` <- ifelse(is.na(forest$IRR1), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest$IRR1, forest$lower1, forest$upper1)) 
+
+forest$`RR (95% CI)2` <- ifelse(is.na(forest$IRR2), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest$IRR2, forest$lower2, forest$upper2)) 
+
+forest <- forest %>%
+  relocate(`Adjusted model`, .after = `upper1`) %>%
+  relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>%
+  relocate(`AIC2`, .after = `pvalue2`)
+
+
+head(forest)
+
+#Adjusting the names - skeleton for the forest plot
+
+g <- forest[,c(1, 6:9, 14:17)]
+colnames(g) <- c("Centralities",
+                      " ","RR (95% CI)","p-value", "AIC",
+                 " ", "RR (95% CI)","p-value", "AIC")
+```
+
+## Graficar el forest plot
+
+```{r fig.align="center", echo = FALSE,fig.height = 9, fig.width = 12}
+tm <- forest_theme(core=list(
+  #fg_params=list(hjust = 1, x = 0.9),
+                             bg_params=list(fill = c("lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", 
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white"
+                                                     ))),
+                   colhead=list(fg_params=list(hjust=0.5, x=0.5)))
+
+study <- forestploter::forest(g,
+            est = list(forest$IRR1,
+                       forest$IRR2),
+            lower = list(forest$lower1,
+                         forest$lower2), 
+            upper = list(forest$upper1,
+                         forest$upper2),
+            ci_column = c(2, 6),
+            ref_line = c(1, 1),
+            xlim = list(c(-1, 5), c(-1, 5)),
+            theme = tm
+           )
+
+
+# Bold grouping text
+study <- forestploter::edit_plot(study,
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
+               gp = grid::gpar(fontface = "bold"))
+
+# Insert text at the top
+study <- insert_text(study,
+                 text = "Adjusted model",
+                 col = 2:4,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+study <- add_text(study,
+                 text = "Unadjusted model",
+                 col = 5:7,
+                 row = 1,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+# Add underline at the bottom of the header
+study <- add_border(study, part = "header", row = 1, where = "top")
+study <- add_border(study, part = "header", row = 2, where = "bottom")
+study <- add_border(study, part = "header", row = 1, col = 2:5,
+                gp = gpar(lwd = 2))
+study <- add_border(study, part = "header", row = 1, col = 6:9,
+                gp = gpar(lwd = 2))
+
+plot(study)
+```
+
+```{r}
+#ggsave("figures/forest_plot/study.png", study, height = 9, width = 12, dpi = 300)
+```
+
+# Work
+
+## Conjunto de datos
+
+```{r}
+forest_1 <- readr::read_csv(
+  "data/processed/forest_work.csv")
+```
+
+## Exploración
+
+```{r}
+colnames(forest_1)
+```
+
+## Paso 1: Ajustar el df para el forest plot
+
+```{r}
+forest_1$var <- ifelse(is.na(forest_1$IRR1), 
+                      forest_1$var,
+                      paste0("   ", forest_1$var))
+
+forest_1$model_type1 <- replace(as.character(forest_1$model_type1), is.na(forest_1$model_type1), "")
+forest_1$pvalue1 <- replace(as.character(forest_1$pvalue1), is.na(forest_1$pvalue1), "")
+forest_1$model_type2 <- replace(as.character(forest_1$model_type2), is.na(forest_1$model_type2), "")
+forest_1$pvalue2 <- replace(as.character(forest_1$pvalue2), is.na(forest_1$pvalue2), "")
+forest_1$AIC1 <- replace(as.character(forest_1$AIC1), is.na(forest_1$AIC1), "")
+forest_1$AIC2 <- replace(as.character(forest_1$AIC2), is.na(forest_1$AIC2), "")
+
+forest_1$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
+forest_1$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
+
+# Create a confidence interval column to display
+
+forest_1$`RR (95% CI)1` <- ifelse(is.na(forest_1$IRR1), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest_1$IRR1, forest_1$lower1, forest_1$upper1)) 
+
+forest_1$`RR (95% CI)2` <- ifelse(is.na(forest_1$IRR2), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest_1$IRR2, forest_1$lower2, forest_1$upper2)) 
+
+forest_1 <- forest_1 %>%
+  relocate(`Adjusted model`, .after = `upper1`) %>%
+  relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>% 
+  relocate(`AIC2`, .after = `pvalue2`)
+
+head(forest_1)
+
+g1 <- forest_1[,c(1, 6:9, 14:17)]
+colnames(g1) <- c("Centralities",
+                      " ","RR (95% CI)","p-value", "AIC"," ",
+                      "RR (95% CI)","p-value", "AIC")
+```
+
+## Graficar el forest plot
+
+```{r fig.align="center", echo = FALSE,fig.height = 9, fig.width = 12}
+
+tm1 <- forest_theme(core=list(
+  #fg_params=list(hjust = 1, x = 0.9),
+                             bg_params=list(fill = c("lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", 
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white"
+                                                     ))),
+                   colhead=list(fg_params=list(hjust=0.5, x=0.5)))
+
+work <- forestploter::forest(g1,
+            est = list(forest_1$IRR1,
+                       forest_1$IRR2),
+            lower = list(forest_1$lower1,
+                         forest_1$lower2), 
+            upper = list(forest_1$upper1,
+                         forest_1$upper2),
+            ci_column = c(2, 6),
+            ref_line = c(1, 1),
+            xlim = list(c(-1, 5), c(-1, 5)),
+            theme = tm1
+#            ticks_at = list(c(0.1, 0.5, 1, 2.5), c(-1, 0, 2)),
+#            xlab = c("OR", "Beta"),
+           )
+# Bold grouping text
+work <- forestploter::edit_plot(work,
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
+               gp = grid::gpar(fontface = "bold"))
+
+# Insert text at the top
+work <- insert_text(work,
+                 text = "Adjusted model",
+                 col = 2:4,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+work <- add_text(work,
+                 text = "Unadjusted model",
+                 col = 5:7,
+                 row = 1,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+# Add underline at the bottom of the header
+work <- add_border(work, part = "header", row = 1, where = "top")
+work <- add_border(work, part = "header", row = 2, where = "bottom")
+work <- add_border(work, part = "header", row = 1, col = 2:5,
+                gp = gpar(lwd = 2))
+work <- add_border(work, part = "header", row = 1, col = 6:9,
+                gp = gpar(lwd = 2))
+
+plot(work)
+```
+
+```{r}
+#ggsave("figures/forest_plot/work.png", work, height = 9, width = 12, dpi = 300)
+```
+
+# Total
+
+## Conjunto de datos
+
+```{r}
+forest_2 <- readr::read_csv(
+  "data/processed/forest_total.csv")
+```
+
+## Exploración
+
+```{r}
+colnames(forest_2)
+```
+
+## Paso 1: Ajustar el df para el forest plot
+
+```{r}
+forest_2$var <- ifelse(is.na(forest_2$IRR1), 
+                      forest_2$var,
+                      paste0("   ", forest_2$var))
+
+forest_2$model_type1 <- replace(as.character(forest_2$model_type1), is.na(forest_2$model_type1), "")
+forest_2$pvalue1 <- replace(as.character(forest_2$pvalue1), is.na(forest_2$pvalue1), "")
+forest_2$model_type2 <- replace(as.character(forest_2$model_type2), is.na(forest_2$model_type2), "")
+forest_2$pvalue2 <- replace(as.character(forest_2$pvalue2), is.na(forest_2$pvalue2), "")
+forest_2$AIC1 <- replace(as.character(forest_2$AIC1), is.na(forest_2$AIC1), "")
+forest_2$AIC2 <- replace(as.character(forest_2$AIC2), is.na(forest_2$AIC2), "")
+
+forest_2$`Adjusted model` <- paste(rep(" ", 20), collapse = " ")
+forest_2$`Unadjusted model` <- paste(rep(" ", 20), collapse = " ")
+
+# Create a confidence interval column to display
+
+forest_2$`RR (95% CI)1` <- ifelse(is.na(forest_2$IRR1), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest_2$IRR1, forest_2$lower1, forest_2$upper1)) 
+
+forest_2$`RR (95% CI)2` <- ifelse(is.na(forest_2$IRR2), "",
+                             sprintf("%.2f (%.2f, %.2f)",
+                                     forest_2$IRR2, forest_2$lower2, forest_2$upper2)) 
+
+forest_2 <- forest_2 %>%
+  relocate(`Adjusted model`, .after = `upper1`) %>%
+  relocate(`RR (95% CI)1`, .after = `Adjusted model`) %>%
+  relocate(`pvalue2`, .after = `RR (95% CI)2`) %>% 
+  relocate(`AIC2`, .after = `pvalue2`)
+
+head(forest_2)
+
+g2 <- forest_2[,c(1, 6:9, 14:17)]
+colnames(g2) <- c("Centralities",
+                      " ","RR (95% CI)","p-value", "AIC"," ",
+                      "RR (95% CI)","p-value", "AIC")
+
+```
+
+## Graficar el forest plot
+
+```{r fig.align="center", echo = FALSE,fig.height = 9, fig.width = 12}
+tm2 <- forest_theme(core=list(
+  #fg_params=list(hjust = 1, x = 0.9),
+                             bg_params=list(fill = c("lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", 
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white",
+                                                     "lightgray", "white", "white"
+                                                     ))),
+                   colhead=list(fg_params=list(hjust=0.5, x=0.5)))
+
+total <- forestploter::forest(g2,
+            est = list(forest_2$IRR1,
+                       forest_2$IRR2),
+            lower = list(forest_2$lower1,
+                         forest_2$lower2), 
+            upper = list(forest_2$upper1,
+                         forest_2$upper2),
+            ci_column = c(2, 6),
+            ref_line = c(1, 1),
+            xlim = list(c(-1, 5), c(-1, 5)),
+            theme = tm2
+#            ticks_at = list(c(0.1, 0.5, 1, 2.5), c(-1, 0, 2)),
+#            xlab = c("OR", "Beta"),
+           )
+
+# Bold grouping text
+total <- forestploter::edit_plot(total,
+               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
+               gp = grid::gpar(fontface = "bold"))
+
+# Insert text at the top
+total <- insert_text(total,
+                 text = "Adjusted model",
+                 col = 2:4,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+total <- add_text(total,
+                 text = "Unadjusted model",
+                 col = 5:7,
+                 row = 1,
+                 part = "header",
+                 gp = grid::gpar(fontface = "bold"))
+
+# Add underline at the bottom of the header
+total <- add_border(total, part = "header", row = 1, where = "top")
+total <- add_border(total, part = "header", row = 2, where = "bottom")
+total <- add_border(total, part = "header", row = 1, col = 2:5, 
+                 gp = gpar(lwd = 2))
+total <- add_border(total, part = "header", row = 1, col = 6:9, 
+             gp = gpar(lwd = 2))
+
+plot(total)
+```
+
+```{r}
+#ggsave("figures/forest_plot/total.png", total, height = 9, width = 12, dpi = 300)
+```
+
+```{r}
+library(cowplot)
+```
+
+```{r fig.align="center", echo = FALSE,fig.height = 9, fig.width = 30}
+combined_fplot <- plot_grid(study, work, total, ncol = 3)
+combined_fplot
+```
+
+```{r}
+#ggsave("figures/forest_plot/combined_forest.png", combined_fplot, height = 10, width = 35, dpi = 300)
+```
