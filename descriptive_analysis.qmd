@@ -86,8 +86,8 @@ edges_gravity <- edges |>
   ) |>
   dplyr::mutate(
     gravity = (flow * (distance^2)) / (mass_origin * mass_destination)
-  ) |>
-  dplyr::select(-c(flow:mass_destination))
+  )
+  # dplyr::select(-c(flow:mass_destination))
 
 ```
 
@@ -104,16 +104,17 @@ graphs <- edges_gravity |>
     order = purrr::map(graph, \(x) gorder(x)),
     density = purrr::map(graph, \(x) edge_density(x)),
     adhesion = purrr::map(graph, \(x) adhesion(x)),
-    assortativity_degree = purrr::map(graph, \(x) assortativity_degree(x)),
-    clique_num = purrr::map(graph, \(x) clique_num(x)),
+    # assortativity_degree = purrr::map(graph, \(x) assortativity_degree(x)),
+    # clique_num = purrr::map(graph, \(x) clique_num(x)),
     clique_count = purrr::map(graph, \(x) count_max_cliques(x)),
-    motif_count = purrr::map(graph, \(x) igraph::count_motifs(x)),
+    # motif_count = purrr::map(graph, \(x) igraph::count_motifs(x)),
     reciprocity = purrr::map(graph, \(x) igraph::reciprocity(x)),
     transitivity = purrr::map(graph, \(x) igraph::transitivity(x))
   ) |> 
   tidyr::unnest(!c(type, edges, graph))
 
-graphs
+graphs |> 
+  dplyr::select(-c(edges, graph))
 ```
 
 ## Plots
@@ -132,10 +133,63 @@ coordinate_layout <- sf::st_coordinates(coords) |>
 ```{r}
 ggraph(graphs$graph[[1]], layout = coordinate_layout) +
   geom_sf(data = districts, color = "lightgray", alpha = 0.5, fill = "transparent") +
-  geom_node_point() + 
+  # geom_node_point() + 
   geom_edge_arc(alpha = 0.08, strength = 0.1) +
   theme_void()
 ```
+
+```{r}
+flow_total_plot <- graphs$graph[[1]] |> 
+  simplify(remove.multiple = FALSE) |> 
+  as_tbl_graph() |> 
+  activate(edges) |> 
+  mutate(gravity_log = log(gravity)) |> 
+  filter(gravity >= 12) |> 
+  ggraph(layout = coordinate_layout) +
+  geom_sf(data = districts, color = "black", alpha = 0.5, fill = "lightgray") +
+  geom_node_point(aes(size = pop_permanent_2017)) +
+  geom_edge_arc(aes(colour = log(gravity), alpha = log(gravity)), strength = 0.1) +
+  scale_edge_colour_continuous(
+    low = "#42047e", high = "#07f49e", 
+    name = "Gravity (log-scaled)", 
+    transform = "reverse",
+    guide = guide_legend(
+      order = 2, theme = theme(text = element_text(size = 15))
+    )
+  ) +
+  scale_edge_alpha_continuous(
+    name = "Gravity (log-scaled)",
+    guide = guide_legend(
+      order = 2, theme = theme(text = element_text(size = 15))
+    )
+  ) +
+  scale_size_continuous(
+    name = "Permanent population",
+    guide = guide_legend(
+      order = 1, theme = theme(text = element_text(size = 15))
+    )
+  ) +
+  # guides(
+    # colour = guide_legend(override.aes = list(linewidth = 3)),
+  #   alpha = guide_legend(order = 2), 
+  #   size = guide_legend(order = 3)
+  # ) +
+  theme_void()
+```
+
+```{r}
+flow_total_plot
+```
+
+
+```{r}
+ggsave("figures/flow/total.png", flow_total_plot, height = 9, width = 9, dpi = 300)
+```
+
+
+
+
+
 
 ```{r}
 plt  <- graphs |>

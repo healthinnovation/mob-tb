@@ -2,7 +2,7 @@
 title: "forest_plot"
 author: "Kasandra Ascuña-Durand / Ariana Cardenas"
 format: html
-editor: visual
+editor: source
 ---
 
 # STUDY
@@ -354,7 +354,7 @@ total <- forestploter::forest(g2,
 
 # Bold grouping text
 total <- forestploter::edit_plot(total,
-               row = c(1, 4, 7, 10, 13, 16, 19, 22, 24, 27),
+               row = c(1, 4, 7, 10, 12, 15, 18, 21, 24, 27),
                gp = grid::gpar(fontface = "bold"))
 
 # Insert text at the top
@@ -383,7 +383,7 @@ plot(total)
 ```
 
 ```{r}
-#ggsave("figures/forest_plot/total.png", total, height = 9, width = 12, dpi = 300)
+ggsave("figures/forest_plot/total.png", total, height = 9, width = 12, dpi = 300)
 ```
 
 ```{r}
