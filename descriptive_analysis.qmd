@@ -1,0 +1,191 @@
+---
+title: "Descriptive Analysis"
+author: "Diego Villa Almeyda"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidygraph)
+library(igraph)
+```
+
+```{r}
+nodes <- readr::read_csv(
+  "data/processed/network/nodes.csv", col_types = "cccciic"
+)
+edges <- readr::read_csv("data/processed/network/edges.csv", col_types = "cccd")
+```
+
+```{r}
+districts_raw <- sf::read_sf("data/raw/Distrito.gpkg")
+districts <- districts_raw |>
+  filter(ubigeo %in% nodes$ubigeo) |>
+  select(ubigeo, geom) |>
+  sf::st_transform(crs = 32718)
+
+coords <- sf::st_centroid(districts)
+dist_matrix <- sf::st_distance(coords)
+rownames(dist_matrix) <- districts$ubigeo
+colnames(dist_matrix) <- districts$ubigeo
+adj_matrix <- graph_from_adjacency_matrix(
+  dist_matrix, mode = "directed", weighted = TRUE
+)
+edge_list <- as_edgelist(adj_matrix)
+
+edge_dist <- tibble::tibble(
+  origin = edge_list[, 1], destination = edge_list[, 2],
+  distance = E(adj_matrix)$weight
+)
+
+get_flow_totals <- function(graph, weight) {
+  graph <- graph |>
+    activate(edges) |>
+    rename(weight = {{weight}})
+
+  graph_totals <- graph |>
+    activate(nodes) |>
+    mutate(
+      mass = centrality_degree(
+        weights = weight, mode = "out", loops = TRUE
+      ),
+      flow_in = centrality_degree(
+        weights = weight, mode = "in", loops = FALSE
+      ),
+      flow_out = centrality_degree(
+        weights = weight, mode = "out", loops = FALSE
+      )
+    ) |>
+    tibble::as_tibble()
+}
+
+graphs_flow_totals <- edges |>
+  tidyr::nest(edges = -type) |>
+  dplyr::mutate(
+    graph = purrr::map(
+      edges, \(x) tbl_graph(
+        nodes = nodes, edges = x, directed = TRUE, node_key = "ubigeo"
+      )
+    ),
+    flow_totals = purrr::map(graph, \(x) get_flow_totals(x, weight = flow)),
+
+  )
+
+masses <- graphs_flow_totals |>
+  dplyr::select(type, flow_totals) |>
+  tidyr::unnest(flow_totals) |>
+  dplyr::select(type, ubigeo, mass)
+
+edges_gravity <- edges |>
+  dplyr::left_join(edge_dist, by = c("origin", "destination")) |>
+  tidyr::replace_na(list(distance = 0)) |>
+  dplyr::left_join(masses, by = c("type", "origin" = "ubigeo")) |>
+  dplyr::left_join(
+    masses, by = c("type", "destination" = "ubigeo"),
+    suffix = c("_origin", "_destination")
+  ) |>
+  dplyr::mutate(
+    gravity = (flow * (distance^2)) / (mass_origin * mass_destination)
+  ) |>
+  dplyr::select(-c(flow:mass_destination))
+
+```
+
+```{r}
+graphs <- edges_gravity |>
+  tidyr::nest(edges = !type) |>
+  dplyr::mutate(
+    graph = purrr::map(
+      edges, \(x) tbl_graph(
+        nodes = nodes, edges = x, directed = TRUE, node_key = "ubigeo"
+      )
+    ),
+    size = purrr::map(graph, \(x) gsize(x)),
+    order = purrr::map(graph, \(x) gorder(x)),
+    density = purrr::map(graph, \(x) edge_density(x)),
+    adhesion = purrr::map(graph, \(x) adhesion(x)),
+    assortativity_degree = purrr::map(graph, \(x) assortativity_degree(x)),
+    clique_num = purrr::map(graph, \(x) clique_num(x)),
+    clique_count = purrr::map(graph, \(x) count_max_cliques(x)),
+    motif_count = purrr::map(graph, \(x) igraph::count_motifs(x)),
+    reciprocity = purrr::map(graph, \(x) igraph::reciprocity(x)),
+    transitivity = purrr::map(graph, \(x) igraph::transitivity(x))
+  ) |> 
+  tidyr::unnest(!c(type, edges, graph))
+
+graphs
+```
+
+## Plots
+
+```{r}
+library(ggraph)
+library(ggplot2)
+```
+
+```{r}
+coordinate_layout <- sf::st_coordinates(coords) |> 
+  tibble::as_tibble() |> 
+  dplyr::rename_with(tolower)
+```
+
+```{r}
+ggraph(graphs$graph[[1]], layout = coordinate_layout) +
+  geom_sf(data = districts, color = "lightgray", alpha = 0.5, fill = "transparent") +
+  geom_node_point() + 
+  geom_edge_arc(alpha = 0.08, strength = 0.1) +
+  theme_void()
+```
+
+```{r}
+plt  <- graphs |>
+    ggraph::ggraph(layout = "kk") +
+    ggraph::geom_edge_arc(
+      ggplot2::aes(alpha = {{ weight }}, color = as.factor({{ group }})),
+      strength = 0.1
+    ) +
+    ggraph::geom_node_point(
+      ggplot2::aes(size = {{ centrality }}, color = as.factor({{ group }}))
+    ) +
+    ggplot2::scale_color_manual(
+      limits = as.factor(dplyr::pull(layout, {{ group }})),
+      values = g_palette(nrow(layout)),
+      name = "Watershed",
+      guide = ggplot2::guide_legend(
+        position = "right", direction = "vertical",
+        theme = theme(ggplot2::element_text(size = 12)),
+      )
+    ) +
+    ggraph::scale_edge_color_manual(
+      limits = as.factor(dplyr::pull(layout, {{ group }})),
+      values = g_palette(nrow(layout)),
+      name = "Watershed",
+      guide = ggplot2::guide_legend(
+        position = "right", direction = "vertical",
+        theme = theme(ggplot2::element_text(size = 12))
+      )
+    ) +
+    ggplot2::scale_size_continuous(
+      name = centrality_label,
+      guide = ggplot2::guide_legend(
+        position = "top", direction = "horizontal",
+        theme = ggplot2::theme(
+          ggplot2::element_text(size = 15)
+        )
+      )
+    ) +
+    ggraph::scale_edge_alpha_continuous(
+      name = weight_label,
+      guide = ggplot2::guide_legend(
+        position = "top", direction = "horizontal",
+        theme = ggplot2::theme(
+          ggplot2::element_text(size = 15)
+        )
+      )
+    ) +
+    ggraph::theme_graph(base_family = "sans") +
+    ggplot2::theme(
+      legend.box = "vertical"
+    )
+```
+
