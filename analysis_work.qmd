@@ -1,0 +1,204 @@
+---
+title: "Analysis"
+author: "Kasandra Ascuña-Durand / Ariana Cardenas"
+format: html
+editor: source
+---
+
+```{r}
+library(dplyr)
+library(MASS)
+```
+
+```{r}
+model_results <- readr::read_rds("model_results.rds")
+```
+
+```{r}
+model_1 <- model_results |> arrange(aic) |> filter(type == "Work", model_mode == "Adjusted")
+```
+
+```{r}
+model_1
+```
+
+```{r}
+summary(model_1$model[[1]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[1]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_1$model[[2]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[2]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_1$model[[3]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[3]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_1$model[[4]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[4]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_1$model[[5]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[5]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_1$model[[6]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[6]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_1$model[[7]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[7]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_1$model[[8]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[8]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_1$model[[9]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[9]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_1$model[[10]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_1$model[[10]], exponentiate = TRUE)
+```
+
+Unadjusted:
+
+```{r}
+model_2 <- model_results |> arrange(aic) |> filter(type == "Work", model_mode == "Unadjusted")
+```
+
+```{r}
+model_2
+```
+
+```{r}
+summary(model_2$model[[1]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[1]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_2$model[[2]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[2]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_2$model[[3]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[3]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_2$model[[4]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[4]], exponentiate = TRUE)
+```
+
+```{r}
+summary(model_2$model[[5]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[5]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_2$model[[6]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[6]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_2$model[[7]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[7]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_2$model[[8]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[8]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_2$model[[9]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[9]], exponentiate = TRUE)
+```
+
+
+```{r}
+summary(model_2$model[[10]])
+```
+
+```{r}
+gtsummary::tbl_regression(model_2$model[[10]], exponentiate = TRUE)
+```
+

@@ -1,0 +1,168 @@
+---
+title: "Analysis"
+author: "Diego Villa"
+format: html
+editor: source
+---
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+centralities <- readr::read_csv(
+  "data/processed/centralities.csv", col_types = "cccciiccddddddddddddddd"
+)
+```
+
+```{r}
+centralities_rank <- centralities |> 
+  group_by(type) |> 
+  mutate(
+    pm25 = as.vector(scale(pm25)),
+    across(
+      contains("centrality") & !contains(c("degree", "between")),
+      \(x) rank(x), .names = "{.col}_rank"
+    )
+  ) |> 
+  ungroup()
+```
+
+```{r}
+centralities_level <- centralities_rank |> 
+  group_by(type) |> 
+  mutate(
+    across(
+      contains("_rank") & !contains("between"),
+      \(x) cut(
+        x, breaks = quantile(x, probs = seq(0, 1, by = 1/3)),
+        labels = c("Low", "Medium", "High"), include.lowest = TRUE
+      ),
+      .names = "{.col}_level"
+    ),
+    centrality_betweenness_weighted_rank_level = factor(
+      ifelse(
+        centrality_betweenness_weighted == 0, "Low", "High"
+      ),
+      levels = c("Low", "High")
+    ),
+    across(contains("level"), \(x) forcats::fct_rev(x))
+  ) |> 
+  ungroup()
+```
+
+```{r}
+centralities_level |> 
+  tidyr::pivot_longer(
+    cols = contains("_level"),
+    names_to = "centrality",
+    names_prefix = "centrality_",
+    values_to = "value"
+  ) |> 
+  count(type, centrality, value) |> 
+  arrange(type, centrality)
+```
+
+```{r}
+tb <- readr::read_csv("data/processed/tb.csv", col_types = "ciii")
+```
+
+```{r}
+junction <- tidyr::expand_grid(
+  ubigeo = unique(tb$ubigeo), year = unique(tb$year), 
+  type = unique(centralities_level$type)
+)
+```
+
+```{r}
+tb_centralities <- tb |> 
+  inner_join(junction, by = c("ubigeo", "year")) |> 
+  inner_join(centralities_level, by = c("ubigeo", "type")) |> 
+  mutate(series = factor(ubigeo), time = year)
+```
+
+```{r}
+centrality_level <- names(tb_centralities)[grepl("_level", names(tb_centralities))]
+model_mode <- c("Unadjusted", "Adjusted")
+```
+
+```{r}
+tb_centralities_nest <- tb_centralities |> 
+  filter(year == 2018) |> 
+  tidyr::nest(data = -c(type))
+```
+
+```{r}
+model_grid <- tidyr::expand_grid(tb_centralities_nest, centrality_level, model_mode)
+```
+
+```{r}
+library(MASS)
+```
+
+```{r}
+model_results <- model_grid |> 
+  mutate(
+    formula = purrr::map2(
+      centrality_level, model_mode, 
+      \(x, y) if(y == "Unadjusted") {
+        as.formula(sprintf("tb ~ offset(log(population)) + %s", x))
+      } else {
+        as.formula(sprintf("tb ~ offset(log(population)) + pc1 + pm25 + %s", x))
+      }
+    ),
+    model = purrr::map2(
+      formula, data, 
+      \(x, y) glm.nb(x, data = y)
+    ),
+    aic = purrr::map(model, \(x) AIC(x))
+  ) |> 
+  tidyr::unnest(aic)
+```
+
+```{r}
+model_results_total <- filter(model_results, type == "Total")
+model_results_study <- filter(model_results, type == "Study")
+model_results_work <- filter(model_results, type == "Work")
+```
+
+```{r}
+model_results_total_adj <- model_results_total |> 
+  filter(model_mode == "Adjusted") |> 
+  arrange(aic)
+
+model_results_total_adj
+```
+
+```{r}
+summary(model_results_total_adj$model[[1]])
+```
+
+```{r}
+broom::tidy(model_results_total_adj$model[[1]], conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+performance::check_model(model_results_total_adj$model[[1]])
+```
+
+```{r}
+performance::check_overdispersion(model_results_total_adj$model[[1]])
+```
+
+```{r}
+performance::check_zeroinflation(model_results_total_adj$model[[1]])
+```
+
+```{r}
+summary(model_results_total_adj$model[[4]])
+```
+
+```{r}
+broom::tidy(model_results_total_adj$model[[4]], conf.int = TRUE, exponentiate = TRUE)
+```
+
+```{r}
+saveRDS(model_results, "model_results.rds")
+```
+

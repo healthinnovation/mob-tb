@@ -19,7 +19,6 @@ population_url <- "https://cdn.www.gob.pe/uploads/document/file/5501252/3464927-
 population_filepath <- "data/raw/socio/population.xlsx"
 download.file(population_url, population_filepath, mode = "wb")
 
-
 # Districts ---------------------------------------------------------------
 districts_url <- "https://ide.inei.gob.pe/files/Distrito.rar"
 districts_filepath <- "data/raw/districts.rar"

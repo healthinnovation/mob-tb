@@ -1,5 +1,6 @@
-filepaths_fixed <- fs::dir_ls("data/interim/fixed/")
+filepaths_fixed <- fs::dir_ls("data/interim/fixed/")[c(1, 5, 6)]
 datasets_fixed <- purrr::map(filepaths_fixed, readr::read_csv)
+colnames(datasets_fixed[[2]])
 nodes <- purrr::reduce(datasets_fixed, dplyr::inner_join, by = "ubigeo")
 readr::write_csv(nodes, "data/processed/network/nodes.csv", na = "")
 
